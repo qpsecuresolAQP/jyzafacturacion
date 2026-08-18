@@ -1,0 +1,2 @@
+ALTER TABLE examenes
+  ADD COLUMN precio DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER precio_convenio;

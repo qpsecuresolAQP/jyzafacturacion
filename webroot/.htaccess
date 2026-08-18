@@ -1,0 +1,17 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # NO reescribir si es un archivo existente
+    RewriteCond %{REQUEST_FILENAME} !-f
+    # NO reescribir si es un directorio existente
+    RewriteCond %{REQUEST_FILENAME} !-d
+    # NO reescribir si es para xml o cdr
+    RewriteCond %{REQUEST_URI} !^/xml/
+    RewriteCond %{REQUEST_URI} !^/cdr/
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Configuraci贸n para aumentar el tama帽o de subida de archivos
+php_value upload_max_filesize 1000M
+php_value post_max_size 1000M
+php_value max_execution_time 480
+php_value max_input_time 480

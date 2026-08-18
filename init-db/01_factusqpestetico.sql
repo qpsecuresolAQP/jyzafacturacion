@@ -1,0 +1,5 @@
+CREATE DATABASE IF NOT EXISTS `spaziodentale` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'spaziodentale'@'%' IDENTIFIED BY '9ca0ef5090124ed72dcd08fc12e7c4d393e3335c14a86467';
+GRANT ALL PRIVILEGES ON `spaziodentale`.* TO 'spaziodentale'@'%';
+FLUSH PRIVILEGES;

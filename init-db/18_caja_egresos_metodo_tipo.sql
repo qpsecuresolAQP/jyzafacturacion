@@ -1,0 +1,5 @@
+ALTER TABLE caja_egresos
+ADD COLUMN metodo_pago VARCHAR(50) AFTER monto;
+
+ALTER TABLE caja_egresos
+  ADD COLUMN tipo ENUM('GASTO','REEMBOLSO_ANULACION') NOT NULL DEFAULT 'GASTO' AFTER metodo_pago;

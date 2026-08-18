@@ -1,0 +1,177 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Controller;
+
+class ProductosController extends AppController
+{
+    public function index()
+    {
+        $stockFiltro = (string) $this->request->getQuery('stock', 'todos');
+
+        $query = $this->Productos->find()
+            ->contain(['CategoriasProductos', 'Proveedores'])
+            ->order(['Productos.id' => 'DESC']);
+
+        if ($stockFiltro === 'agotado') {
+            $query->where(['Productos.stock <=' => 0]);
+        } elseif ($stockFiltro === 'bajo') {
+            $query->where($this->stockBajoConditions('Productos'));
+        } elseif ($stockFiltro === 'normal') {
+            // Normal: hay stock y, o no tiene mínimo configurado, o el stock
+            // actual todavía está por encima de ese mínimo.
+            $query->where(['Productos.stock >' => 0])
+                ->andWhere(function ($exp) {
+                    return $exp->or([
+                        'Productos.stock_minimo' => 0,
+                        'Productos.stock >' => new \Cake\Database\Expression\IdentifierExpression('Productos.stock_minimo'),
+                    ]);
+                });
+        }
+
+        $productos = $this->paginate($query);
+
+        $stockCounts = [
+            'agotado' => $this->Productos->find()->where(['stock <=' => 0])->count(),
+            'bajo' => $this->Productos->find()->where($this->stockBajoConditions('Productos'))->count(),
+        ];
+        $stockCounts['normal'] = $this->Productos->find()->count() - $stockCounts['agotado'] - $stockCounts['bajo'];
+
+        $this->set(compact('productos', 'stockFiltro', 'stockCounts'));
+    }
+
+    /**
+     * Condiciones SQL para "stock bajo": tiene stock, tiene un mínimo
+     * configurado (> 0) y el stock actual ya llegó a ese mínimo o menos.
+     */
+    private function stockBajoConditions(string $alias): array
+    {
+        return [
+            $alias . '.stock >' => 0,
+            $alias . '.stock_minimo >' => 0,
+            $alias . '.stock <=' => new \Cake\Database\Expression\IdentifierExpression($alias . '.stock_minimo'),
+        ];
+    }
+
+    public function add()
+    {
+        $producto = $this->Productos->newEmptyEntity();
+
+        if ($this->request->is('post')) {
+            $producto = $this->Productos->patchEntity($producto, $this->request->getData());
+
+            if ($this->Productos->save($producto)) {
+                $this->Flash->success('El producto fue guardado correctamente.');
+                return $this->redirect(['action' => 'index']);
+            }
+
+            $this->Flash->error('No se pudo guardar el producto.');
+        }
+
+        $categorias = $this->Productos->CategoriasProductos
+            ->find('list', keyField: 'id', valueField: 'nombre')
+            ->where(['estado' => 1])
+            ->order(['nombre' => 'ASC'])
+            ->toArray();
+
+        $proveedores = $this->Productos->Proveedores
+            ->find('list', keyField: 'id', valueField: 'nombre')
+            ->where(['activo' => 1])
+            ->order(['nombre' => 'ASC'])
+            ->toArray();
+
+        $this->set(compact('producto', 'categorias', 'proveedores'));
+         // Usar un layout diferenciado para solicitudes normales o AJAX
+        if ($this->request->is('ajax')) {
+            $this->viewBuilder()->setLayout('ajax');
+        } else {
+            $this->viewBuilder()->setLayout('default');
+        }
+    }
+
+    public function edit($id = null)
+    {
+        $producto = $this->Productos->get($id);
+
+        if ($this->request->is(['patch', 'post', 'put'])) {
+            $producto = $this->Productos->patchEntity($producto, $this->request->getData());
+
+            if ($this->Productos->save($producto)) {
+                $this->Flash->success('El producto fue actualizado correctamente.');
+                return $this->redirect(['action' => 'index']);
+            }
+
+            $this->Flash->error('No se pudo actualizar el producto.');
+        }
+
+        $categorias = $this->Productos->CategoriasProductos
+            ->find('list', keyField: 'id', valueField: 'nombre')
+            ->where(['estado' => 1])
+            ->order(['nombre' => 'ASC'])
+            ->toArray();
+
+        $proveedores = $this->Productos->Proveedores
+            ->find('list', keyField: 'id', valueField: 'nombre')
+            ->where(['activo' => 1])
+            ->order(['nombre' => 'ASC'])
+            ->toArray();
+
+        $this->set(compact('producto', 'categorias', 'proveedores'));
+         // Usar un layout diferenciado para solicitudes normales o AJAX
+        if ($this->request->is('ajax')) {
+            $this->viewBuilder()->setLayout('ajax');
+        } else {
+            $this->viewBuilder()->setLayout('default');
+        }
+    }
+
+    public function delete($id = null)
+    {
+        $this->request->allowMethod(['post', 'delete']);
+
+        $producto = $this->Productos->get($id);
+
+        if ($this->Productos->save(
+            $this->Productos->patchEntity($producto, ['estado' => 0])
+        )) {
+            $this->Flash->success('El producto fue desactivado correctamente.');
+        } else {
+            $this->Flash->error('No se pudo desactivar el producto.');
+        }
+
+        return $this->redirect(['action' => 'index']);
+    }
+
+    
+
+    public function buscar()
+{
+    $this->request->allowMethod(['get']);
+
+    $q = $this->request->getQuery('q');
+
+    if (!$q) {
+        return $this->response->withType('application/json')
+            ->withStringBody(json_encode([]));
+    }
+
+    $productos = $this->Productos->find()
+        ->where(['nombre LIKE' => '%' . $q . '%'])
+        ->limit(10)
+        ->all();
+
+    $data = [];
+
+    foreach ($productos as $p) {
+        $data[] = [
+            'id' => $p->id,
+            'nombre' => $p->nombre,
+            'precio' => (float)$p->precio,
+            'stock' => (float)$p->stock
+        ];
+    }
+
+    return $this->response->withType('application/json')
+        ->withStringBody(json_encode($data));
+}
+}
