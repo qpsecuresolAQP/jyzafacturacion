@@ -30,7 +30,7 @@ class PresupuestosController extends AppController
 
     public function exportPresupuestoPdf($id = null)
     {
-        $logoUrl = Router::url('/img/logoClinica.png', true);
+        $logoUrl = Router::url('/img/logoJyza.webp', true);
         // Obtener el paciente por ID y cargar las relaciones necesarias
         $presupuesto = $this->Presupuestos->get($id, contain: [
             'HistoriasClinicas.Pacientes',

@@ -246,7 +246,7 @@ class PagosLaboratoriosController extends AppController
             ],
         ]);
 
-        $logoUrl = Router::url('/img/logoClinica.png', true);
+        $logoUrl = Router::url('/img/logoJyza.webp', true);
 
         $this->viewBuilder()->disableAutoLayout();
         $this->set(compact('pagoHistorial', 'logoUrl'));

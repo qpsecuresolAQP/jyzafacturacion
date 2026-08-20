@@ -182,7 +182,7 @@
     </table>
 
     <div class="footer">
-        SpazioDentale &mdash; Reporte generado automáticamente
+        Consultorio Ginecológico JYZA &mdash; Reporte generado automáticamente
     </div>
 </body>
 </html>

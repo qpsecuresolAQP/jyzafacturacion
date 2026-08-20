@@ -256,7 +256,7 @@
 
             <!-- Logo -->
             <div class="logo-wrap">
-                <?= $this->Html->image('logoClinica.png', ['alt' => 'Logo Clínica', 'class' => 'logo-top']) ?>
+                <?= $this->Html->image('logoJyza.webp', ['alt' => 'Consultorio Ginecológico JYZA', 'class' => 'logo-top']) ?>
             </div>
 
             <!-- Título -->

@@ -49,18 +49,6 @@ class PagesController extends AppController
             $inicioMes = date('Y-m-01 00:00:00');
             $finMes = date('Y-m-t 23:59:59');
 
-            // Cumpleaños hoy
-            $historiasTable = $this->fetchTable('HistoriasClinicas');
-            $mesActual = (int)date('m');
-            $diaActual = (int)date('d');
-            $cumpleañosHoy = $historiasTable->find()
-                ->contain(['Pacientes'])
-                ->where([
-                    'MONTH(HistoriasClinicas.fecha_nacimiento)' => $mesActual,
-                    'DAY(HistoriasClinicas.fecha_nacimiento)' => $diaActual,
-                ])
-                ->toArray();
-
             // Tratamientos más realizados en los últimos 7 días (según facturación, sin anuladas)
             $hace7Dias = (new \DateTime('today'))->modify('-6 days')->format('Y-m-d 00:00:00');
             $hoyFinDia = (new \DateTime('today'))->modify('+1 day -1 second')->format('Y-m-d H:i:s');
@@ -104,10 +92,20 @@ class PagesController extends AppController
                 ->enableHydration(false)
                 ->toArray();
 
+            // Más vendidos del mes actual, para los gráficos fijos de la izquierda
+            // (Productos, Tratamientos, Exámenes)
+            $mesActualEtiqueta = date('Y-m');
+            $productosVendidosMesActual = $this->buildTopVendidosPorMes('producto', $mesActualEtiqueta);
+            $tratamientosVendidosMesActual = $this->buildTopVendidosPorMes('tratamiento', $mesActualEtiqueta);
+            $examenesVendidosMesActual = $this->buildTopVendidosPorMes('examen', $mesActualEtiqueta);
+
             $this->set(compact(
-                'cumpleañosHoy',
                 'tratamientosUltimos7Dias',
-                'ingresosPorTratamiento'
+                'ingresosPorTratamiento',
+                'productosVendidosMesActual',
+                'tratamientosVendidosMesActual',
+                'examenesVendidosMesActual',
+                'mesActualEtiqueta'
             ));
         }
 
@@ -121,5 +119,80 @@ class PagesController extends AppController
             }
             throw new NotFoundException();
         }
+    }
+
+    /**
+     * Devuelve, en JSON, el top de más vendidos (por cantidad) de un tipo de
+     * ítem (producto, tratamiento o examen) en un mes dado (formato "Y-m"),
+     * para alimentar los gráficos comparativos del home. Excluye facturas
+     * ANULADAS.
+     */
+    public function topVendidosMes()
+    {
+        $this->request->allowMethod(['get']);
+        $this->autoRender = false;
+
+        $tipo = (string) $this->request->getQuery('tipo', '');
+        $mes = (string) $this->request->getQuery('mes', date('Y-m'));
+
+        $asociaciones = [
+            'producto' => 'Productos',
+            'tratamiento' => 'Tratamientos',
+            'examen' => 'Examenes',
+        ];
+
+        if (!isset($asociaciones[$tipo]) || !preg_match('/^\d{4}-\d{2}$/', $mes)) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode(['ok' => false, 'message' => 'Parámetros inválidos'], JSON_UNESCAPED_UNICODE));
+        }
+
+        $items = $this->buildTopVendidosPorMes($tipo, $mes);
+
+        return $this->response
+            ->withType('application/json')
+            ->withStringBody(json_encode(['ok' => true, 'mes' => $mes, 'items' => $items], JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Top 10 de más vendidos (por cantidad) de un tipo de ítem (producto,
+     * tratamiento o examen) en un mes "Y-m" dado, según facturación,
+     * excluyendo facturas ANULADAS.
+     */
+    private function buildTopVendidosPorMes(string $tipoItem, string $mesEtiqueta): array
+    {
+        $asociaciones = [
+            'producto' => 'Productos',
+            'tratamiento' => 'Tratamientos',
+            'examen' => 'Examenes',
+        ];
+
+        $asociacion = $asociaciones[$tipoItem] ?? null;
+        if ($asociacion === null) {
+            return [];
+        }
+
+        $inicioMes = $mesEtiqueta . '-01 00:00:00';
+        $finMes = date('Y-m-t 23:59:59', strtotime($inicioMes));
+
+        return $this->fetchTable('InvoiceItems')->find()
+            ->select([
+                'nombre' => $asociacion . '.nombre',
+                'total' => 'SUM(InvoiceItems.cantidad)',
+                'ingresos' => 'SUM(InvoiceItems.total)',
+            ])
+            ->innerJoinWith($asociacion)
+            ->innerJoinWith('Invoices')
+            ->where([
+                'InvoiceItems.tipo_item' => $tipoItem,
+                'Invoices.estado !=' => 'ANULADO',
+                'Invoices.created >=' => $inicioMes,
+                'Invoices.created <=' => $finMes,
+            ])
+            ->group($asociacion . '.id')
+            ->order(['total' => 'DESC'])
+            ->limit(10)
+            ->enableHydration(false)
+            ->toArray();
     }
 }

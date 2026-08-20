@@ -152,7 +152,7 @@
         <div class="header">
             <?= $this->Html->image($logoUrl, ['alt' => 'Logo', 'style' => 'width: 180px;']) ?>
             <div class="hed-cotizacion">
-                <h1>SpazioDentale</h1>
+                <h1>Consultorio Ginecológico JYZA</h1>
                 <p>Av. Defensores del Morro Mz 05 lot. 05 Santa Teresa de Villa Chorrillos, Lima</p>
                 <!-- <p>Correo electrónico: yuwer_eg@hotmail.com</p> -->
                 <p>Nro de Contacto: +51 982 713 480</p>

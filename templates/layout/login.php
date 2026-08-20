@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= __('Iniciar Sesión') ?></title>
-    <link rel="icon" type="image/png" href="<?= $this->Url->image('dientito.png') ?>">
+    <link rel="icon" type="image/webp" href="<?= $this->Url->image('jyzaicon.webp') ?>">
 
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -361,7 +361,7 @@
         <!-- Panel Izquierdo con Logo centrado -->
         <div class="login-left">
             <div class="logo-section">
-                <img src="<?= $this->Url->image('logoClinica.png') ?>" alt="Logo SD">
+                <img src="<?= $this->Url->image('jyzaicon.png') ?>" alt="Consultorio Ginecológico JYZA">
             </div>
             <!-- <div class="tagline">
                 QP Secure Solutions

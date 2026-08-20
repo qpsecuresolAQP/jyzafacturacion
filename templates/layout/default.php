@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SpazioDentale | <?= $this->fetch('title') ?></title>
-  <?= $this->Html->meta('icon', '/img/iconoSD.png', ['type' => 'icon']) ?>
+  <title>Consultorio Ginecológico JYZA | <?= $this->fetch('title') ?></title>
+  <?= $this->Html->meta('icon', '/img/jyzaicon.png', ['type' => 'icon']) ?>
 <!-- Google Font: Source Sans Pro -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
 
@@ -98,8 +98,8 @@
   <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <!-- Brand Logo -->
     <a href="<?= $this->Url->build(['controller' => 'Pages', 'action' => 'home']) ?>" class="brand-link">
-    <img src="<?= $this->Url->image('iconoSD.png') ?>" alt="SpazioDentale Logo" class="brand-image img-circle elevation-3" style="opacity: .8; max-height: 40px;">
-    <p class=" font-weight-light nav-icon" style="margin-left: 8px; display: inline-block;">SpazioDentale</p>
+    <img src="<?= $this->Url->image('logoJyza.webp') ?>" alt="Consultorio Ginecológico JYZA" class="brand-image img-circle elevation-3" style="opacity: .8; max-height: 40px;">
+    <p class=" font-weight-light nav-icon" style="margin-left: 8px; display: inline-block;">C. G. JYZA</p>
 </a>
 
 
@@ -451,7 +451,7 @@
             <div class="modal-content">
             <div class="modal-header">
             <h5 class="modal-title" id="modalLabelLg">
-                <img src="<?= $this->Url->image('logoClinica.png') ?>" alt="Logo Clínica" style="max-height: 50px;">
+                <img src="<?= $this->Url->image('logoJyza.webp') ?>" alt="Logo Clínica" style="max-height: 50px;">
             </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
@@ -470,7 +470,7 @@
             <div class="modal-content">
             <div class="modal-header">
             <h5 class="modal-title" id="modalLabelLg">
-                <img src="<?= $this->Url->image('logoClinica.png') ?>" alt="Logo Clínica" style="max-height: 50px;">
+                <img src="<?= $this->Url->image('logoJyza.webp') ?>" alt="Logo Clínica" style="max-height: 50px;">
             </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
@@ -489,7 +489,7 @@
             <div class="modal-content">
             <div class="modal-header">
             <h5 class="modal-title" id="modalLabelLg">
-                <img src="<?= $this->Url->image('logoClinica.png') ?>" alt="Logo Clínica" style="max-height: 50px;">
+                <img src="<?= $this->Url->image('logoJyza.webp') ?>" alt="Logo Clínica" style="max-height: 50px;">
             </h5>
 
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -509,7 +509,7 @@
             <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalLabelLg">
-                    <img src="<?= $this->Url->image('logoClinica.png') ?>" alt="Logo Clínica" style="max-height: 50px;">
+                    <img src="<?= $this->Url->image('logoJyza.webp') ?>" alt="Logo Clínica" style="max-height: 50px;">
                 </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                 <span aria-hidden="true">&times;</span>

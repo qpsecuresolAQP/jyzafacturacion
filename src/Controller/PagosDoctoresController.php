@@ -322,7 +322,7 @@ class PagosDoctoresController extends AppController
             ],
         ]);
 
-        $logoUrl = Router::url('/img/logoClinica.png', true);
+        $logoUrl = Router::url('/img/logoJyza.webp', true);
 
         $this->viewBuilder()->disableAutoLayout();
         $this->set(compact('pagoHistorial', 'logoUrl'));
@@ -364,7 +364,7 @@ class PagosDoctoresController extends AppController
             'order' => ['nombre' => 'ASC', 'apellido' => 'ASC']
         ])->toArray();
 
-        $logoUrl = Router::url('/img/logoClinica.png', true);
+        $logoUrl = Router::url('/img/logoJyza.webp', true);
 
         $this->viewBuilder()->disableAutoLayout();
         $this->set([

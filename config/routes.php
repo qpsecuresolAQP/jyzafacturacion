@@ -77,6 +77,14 @@ return function (RouteBuilder $routes): void {
         $builder->connect('/', ['controller' => 'Pages', 'action' => 'display', 'home']);
 
         /*
+         * Ruta específica para el endpoint AJAX de gráficos comparativos del
+         * home. Debe ir ANTES del wildcard '/pages/*' de abajo, que de otro
+         * modo captura cualquier URL bajo /pages/ y la enruta siempre hacia
+         * display(), tratándola como un path de página estática.
+         */
+        $builder->connect('/pages/top-vendidos-mes', ['controller' => 'Pages', 'action' => 'topVendidosMes']);
+
+        /*
          * ...and connect the rest of 'Pages' controller's URLs.
          */
         $builder->connect('/pages/*', 'Pages::display');

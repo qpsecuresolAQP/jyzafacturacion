@@ -15,7 +15,7 @@ return [
     'except' => [
         // Autenticación
         'Users' => ['login', 'logout'],
-        'Pages' => ['display'],
+        'Pages' => ['display', 'topVendidosMes'],
         'Error' => ['index', 'notFound'],
 
         // BÚSQUEDAS AJAX (Helpers secundarios)
