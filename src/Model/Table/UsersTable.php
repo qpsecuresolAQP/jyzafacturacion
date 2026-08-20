@@ -13,7 +13,6 @@ use Cake\Validation\Validator;
  *
  * @property \App\Model\Table\RolesTable&\Cake\ORM\Association\BelongsTo $Roles
  * @property \App\Model\Table\DoctorsTable&\Cake\ORM\Association\BelongsTo $Doctors
- * @property \App\Model\Table\ConsultasTable&\Cake\ORM\Association\HasMany $Consultas
  *
  * @method \App\Model\Entity\User newEmptyEntity()
  * @method \App\Model\Entity\User newEntity(array $data, array $options = [])
@@ -49,16 +48,7 @@ class UsersTable extends Table
 
         $this->addBehavior('Timestamp');
 
-        $this->hasMany('Citas', [
-            'foreignKey' => 'user_id',
-        ]);
-        $this->hasMany('Consultas', [
-            'foreignKey' => 'user_id',
-        ]);
         $this->hasMany('HistoriasClinicas', [
-            'foreignKey' => 'user_id',
-        ]);
-        $this->hasMany('Procedimientos', [
             'foreignKey' => 'user_id',
         ]);
         $this->hasMany('Transacciones', [

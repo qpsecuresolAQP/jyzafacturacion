@@ -3,10 +3,7 @@
  * @var \App\View\AppView $this
  * @var \App\Model\Entity\HistoriasClinica $historiasClinica
  * @var string[]|\Cake\Collection\CollectionInterface $pacientes
- * @var string[]|\Cake\Collection\CollectionInterface $departamentos
- * @var string[]|\Cake\Collection\CollectionInterface $campanas
  * @var string[]|\Cake\Collection\CollectionInterface $users
- * @var string[]|\Cake\Collection\CollectionInterface $examenesFisicos
  */
 ?>
 
@@ -36,33 +33,6 @@
             ]) ?>
         <?php endif; ?>
     </div>    
-
-    <!-- Medicación -->
-    <div class="col-md-6 mb-3">
-        <?= $this->Form->control('medicacion', [
-            'label' => 'Medicación',
-            'class' => 'form-control',
-            'placeholder' => 'Detalles sobre medicación'
-        ]) ?>
-    </div>
-
-    <!-- Alergias -->
-    <div class="col-md-6 mb-3">
-        <?= $this->Form->control('alergias', [
-            'label' => 'Reacciones adversas a medicamentos',
-            'class' => 'form-control',
-            'placeholder' => 'Detalles sobre alergias'
-        ]) ?>
-    </div>
-
-    <!-- Enfermedades -->
-    <div class="col-md-6 mb-3">
-        <?= $this->Form->control('enfermedades', [
-            'label' => 'Enfermedades',
-            'class' => 'form-control',
-            'placeholder' => 'Detalles sobre enfermedades'
-        ]) ?>
-    </div>
 
     <!-- Botones -->
     <div class="col-12 text-center mt-3">

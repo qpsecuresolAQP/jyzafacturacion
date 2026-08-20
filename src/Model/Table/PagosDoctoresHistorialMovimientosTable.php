@@ -66,6 +66,10 @@ class PagosDoctoresHistorialMovimientosTable extends Table
             ->requirePresence('monto_pagado', 'create')
             ->notEmptyString('monto_pagado');
 
+        $validator
+            ->scalar('conceptos')
+            ->allowEmptyString('conceptos');
+
         return $validator;
     }
 

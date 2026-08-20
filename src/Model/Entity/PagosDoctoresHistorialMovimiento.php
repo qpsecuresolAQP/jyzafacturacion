@@ -14,6 +14,7 @@ class PagosDoctoresHistorialMovimiento extends Entity
         'metodo_pago' => true,
         'base_doctor' => true,
         'monto_pagado' => true,
+        'conceptos' => true,
         'created' => true,
         'modified' => true,
         'pagos_doctores_historial' => true,

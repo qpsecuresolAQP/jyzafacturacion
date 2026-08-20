@@ -2,8 +2,6 @@
 /**
  * @var \App\View\AppView $this
  * @var \App\Model\Entity\Paciente $paciente
- * @var string[]|\Cake\Collection\CollectionInterface $departamentos
- * @var string[]|\Cake\Collection\CollectionInterface $campanas
  * @var string[]|\Cake\Collection\CollectionInterface $users
  */
 ?>
@@ -51,9 +49,6 @@
     <?= $this->Form->control('historia_clinica.edad', ['class' => 'form-control', 'label' => 'Edad', 'value' => $paciente->historias_clinica->edad ?? '', 'id' => 'edad']) ?>
 </div>
 <div class="col-md-6 mb-3">
-    <?= $this->Form->control('historia_clinica.departamento_id', ['options' => $departamentos, 'class' => 'form-control', 'label' => 'Procedencia', 'empty' => true, 'value' => $paciente->historias_clinica->departamento_id ?? '']) ?>
-</div>
-<div class="col-md-6 mb-3">
     <?= $this->Form->control('historia_clinica.direccion', ['class' => 'form-control', 'label' => 'Dirrecion', 'value' => $paciente->historias_clinica->direccion ?? '', 'id' => 'direccion']) ?>
 </div>
 <div class="col-md-6 mb-3">
@@ -81,53 +76,6 @@
 <div class="col-md-6 mb-3">
     <?= $this->Form->control('historia_clinica.obs_administrativas', ['class' => 'form-control', 'label' => 'Observaciones Administrativas', 'value' => $paciente->historias_clinica->obs_administrativas ?? '']) ?>
 </div>
-    <div id="historia_clinica" class="container mt-4">
-        <div class="card shadow">
-            <div class="card-header text-center">
-                <h3>Editar Historia Clínica</h3>
-            </div>
-            <div class="card-body">
-                <div class="rounded p-3 mb-4 shadow-sm">
-                    <div class="row mb-3">
-                        <div class="col-md-2">
-                            <p class="label-text">Medicacion:</p>
-                        </div>
-                        <div class="col-md-10">
-                            <?= $this->Form->control('historia_clinica.medicacion', [
-                                'label' => false,
-                                'class' => 'form-control',
-                                'value' => $historiaClinica->medicacion
-                            ]) ?>
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-2">
-                            <p class="label-text">Reacciones adversas a medicamentos:</p>
-                        </div>
-                        <div class="col-md-10">
-                            <?= $this->Form->control('historia_clinica.alergias', [
-                                'label' => false,
-                                'class' => 'form-control',
-                                'value' => $historiaClinica->alergias
-                            ]) ?>
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-2">
-                            <p class="label-text">Enfermedades:</p>
-                        </div>
-                        <div class="col-md-10">
-                            <?= $this->Form->control('historia_clinica.enfermedades', [
-                                'label' => false,
-                                'class' => 'form-control',
-                                'value' => $historiaClinica->enfermedades
-                            ]) ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 <?php else : ?>
     <p class="text-center text-muted">Este paciente no tiene una historia clínica registrada.</p>
 <?php endif; ?>

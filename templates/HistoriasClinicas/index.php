@@ -14,9 +14,6 @@
                     <tr>
                         <th><?= $this->Paginator->sort('id', 'N° de Historia') ?></th>
                         <th><?= $this->Paginator->sort('paciente_id', 'Paciente') ?></th>
-                        <th><?= $this->Paginator->sort('medicacion', 'Medicacion') ?></th>
-                        <th><?= $this->Paginator->sort('alergias', 'Alergias') ?></th>
-                        <th><?= $this->Paginator->sort('enfermedades', 'Enfermedades') ?></th>
                         <th><?= $this->Paginator->sort('created', 'Creado') ?></th>
                         <th><?= $this->Paginator->sort('modified', 'Modificado') ?></th>
                         <th class="actions text-dark"><?= __('Acciones') ?></th>
@@ -27,9 +24,6 @@
                     <tr>
                         <td><?= $this->Number->format($historiasClinica->id) ?></td>
                         <td><?= $historiasClinica->hasValue('paciente') ? $this->Html->link($historiasClinica->paciente->nombre, ['controller' => 'Pacientes', 'action' => 'view', $historiasClinica->paciente->id]) : '' ?></td>
-                        <td><?= h($historiasClinica->medicacion) ?></td>
-                        <td><?= h($historiasClinica->alergias) ?></td>
-                        <td><?= h($historiasClinica->enfermedades) ?></td>
                         <td><?= h($historiasClinica->created) ?></td>
                         <td><?= h($historiasClinica->modified) ?></td>
                         <td class="actions text-center">

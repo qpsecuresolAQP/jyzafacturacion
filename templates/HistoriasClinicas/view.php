@@ -38,36 +38,6 @@
         </div>
     </div>
 
-    <!-- Medicacion -->
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <p class="label-text"><?= __('Medicacion:') ?></p>
-        </div>
-        <div class="col-md-9">
-            <div class="data-box"><?= h($historiasClinica->medicacion) ?: 'No especificados' ?></div>
-        </div>
-    </div>
-
-    <!-- Alergias -->
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <p class="label-text"><?= __('Reacciones adversas a medicamentos:') ?></p>
-        </div>
-        <div class="col-md-9">
-            <div class="data-box"><?= h($historiasClinica->alergias) ?: 'No especificadas' ?></div>
-        </div>
-    </div>
-
-    <!-- Enfermedades -->
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <p class="label-text"><?= __('Enfermedades:') ?></p>
-        </div>
-        <div class="col-md-9">
-            <div class="data-box"><?= h($historiasClinica->enfermedades) ?: 'No especificadas' ?></div>
-        </div>
-    </div>
-
     <!-- Fechas -->
     <div class="row mb-3">
         <div class="col-md-4">

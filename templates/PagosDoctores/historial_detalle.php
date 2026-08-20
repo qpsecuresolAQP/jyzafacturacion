@@ -10,9 +10,14 @@
             <i class="fas fa-receipt"></i> Detalle de Pago #<?= h($pagoHistorial->id) ?>
         </h3>
 
-        <a href="<?= $this->Url->build(['action' => 'historial']) ?>" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Volver al Historial
-        </a>
+        <div class="d-flex gap-2">
+            <a href="<?= $this->Url->build(['action' => 'pdfPago', $pagoHistorial->id]) ?>" class="btn btn-outline-danger" target="_blank">
+                <i class="fas fa-file-pdf"></i> Descargar PDF
+            </a>
+            <a href="<?= $this->Url->build(['action' => 'historial']) ?>" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Historial
+            </a>
+        </div>
     </div>
 
     <div class="row mb-4">
@@ -71,10 +76,12 @@
                     <th>Base Doctor</th>
                     <th>Monto Pagado</th>
                     <th>Estado Comprobante</th>
+                    <th>Conceptos</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($pagoHistorial->pagos_doctores_historial_movimientos as $detalle): ?>
+                    <?php $conceptos = json_decode((string) ($detalle->conceptos ?? ''), true) ?: []; ?>
                     <tr>
                         <td>
                             <?= $this->Html->link(
@@ -90,6 +97,15 @@
                             <span class="badge bg-<?= $detalle->invoice->estado === 'ANULADO' ? 'danger' : 'success' ?>">
                                 <?= h($detalle->invoice->estado ?? '-') ?>
                             </span>
+                        </td>
+                        <td style="font-size: 0.85em;">
+                            <?php if (!empty($conceptos)): ?>
+                                <?php foreach ($conceptos as $concepto): ?>
+                                    <div><?= h($concepto['descripcion'] ?? '-') ?> (x<?= h($concepto['cantidad'] ?? 0) ?>) — S/ <?= number_format((float) ($concepto['pago_doctor_item'] ?? 0), 2) ?></div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <span class="text-muted">-</span>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>

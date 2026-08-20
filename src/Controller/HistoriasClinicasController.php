@@ -91,9 +91,8 @@ class HistoriasClinicasController extends AppController
             $pacientes = $this->HistoriasClinicas->Pacientes->find('list', limit: 200)->all();
         }
 
-        $departamentos = $this->HistoriasClinicas->Departamentos->find('list', limit: 200)->all();
         $users = $this->HistoriasClinicas->Users->find('list', limit: 200)->all();
-        $this->set(compact('historiasClinica', 'pacientes', 'paciente', 'departamentos', 'users'));
+        $this->set(compact('historiasClinica', 'pacientes', 'paciente', 'users'));
 
         // Usar un layout diferenciado para solicitudes normales o AJAX
         if ($this->request->is('ajax')) {
@@ -114,7 +113,7 @@ class HistoriasClinicasController extends AppController
     {
         // Buscar la historia clínica asociada al paciente
         $historiasClinica = $this->HistoriasClinicas->find()
-            ->contain(['Departamentos', 'Users', 'Pacientes' => ['Citas' => ['Campanas']]])
+            ->contain(['Users', 'Pacientes'])
             ->where(['paciente_id' => $paciente_id])
             ->first();
 
@@ -135,18 +134,12 @@ class HistoriasClinicasController extends AppController
 
         // Datos adicionales para el formulario
         $pacientes = $this->HistoriasClinicas->Pacientes->find('list', limit: 200)->all();
-        $departamentos = $this->HistoriasClinicas->Departamentos->find('list', limit: 200)->all();
-        $campanas = $this->HistoriasClinicas->Pacientes->Citas->Campanas->find('list', limit: 200)->all();
         $users = $this->HistoriasClinicas->Users->find('list', limit: 200)->all();
-        $examenesFisicos = $this->HistoriasClinicas->ExamenesFisicos->find('list', limit: 200)->all();
 
         $this->set(compact(
             'historiasClinica',
             'pacientes',
-            'departamentos',
-            'campanas',
-            'users',
-            'examenesFisicos'
+            'users'
         ));
 
         // Layout según si es solicitud AJAX o no

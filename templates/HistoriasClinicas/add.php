@@ -33,34 +33,6 @@
         <?php endif; ?>
     </div>    
 
-    <?php if ($usuario->rol != 2) : ?>
-    <!-- Campo Medicacion -->
-    <div class="col-md-12 mb-3">
-        <?= $this->Form->control('medicacion', [
-            'label' => 'Medicacion',
-            'class' => 'form-control',
-            'placeholder' => 'Detalles de medicacion'
-        ]) ?>
-    </div>
-
-    <!-- Campo Alergias -->
-    <div class="col-md-12 mb-3">
-        <?= $this->Form->control('alergias', [
-            'label' => 'Reacciones adversas a medicamentos',
-            'class' => 'form-control',
-            'placeholder' => 'Detalles sobre alergias'
-        ]) ?>
-    </div>
-
-    <!-- Campo Enfermedades -->
-    <div class="col-md-12 mb-3">
-        <?= $this->Form->control('enfermedades', [
-            'label' => 'Enfermedades',
-            'class' => 'form-control',
-            'placeholder' => 'Detalles sobre enfermedades previas'
-        ]) ?>
-    </div>
-<?php endif; ?>
 
     <!-- Campo DNI / Carnet-->
     <div class="col-md-12 mb-3">
@@ -92,16 +64,6 @@
             'label' => 'Edad',
             'class' => 'form-control',
             'placeholder' => 'Edad'
-        ]) ?>
-    </div>
-
-    <!-- Campo Departamento -->
-    <div class="col-md-6 mb-3">
-        <?= $this->Form->control('departamento_id', [
-            'options' => $departamentos,
-            'empty' => 'Seleccione el Departamento',
-            'label' => 'Departamento',
-            'class' => 'form-control'
         ]) ?>
     </div>
 

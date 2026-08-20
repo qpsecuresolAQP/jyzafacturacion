@@ -13,20 +13,8 @@ use Cake\Validation\Validator;
  * HistoriasClinicas Model
  *
  * @property \App\Model\Table\PacientesTable&\Cake\ORM\Association\BelongsTo $Pacientes
- * @property \App\Model\Table\DepartamentosTable&\Cake\ORM\Association\BelongsTo $Departamentos
  * @property \App\Model\Table\UsersTable&\Cake\ORM\Association\BelongsTo $Users
- * @property \App\Model\Table\DocumentosTable&\Cake\ORM\Association\HasMany $Documentos
- * @property \App\Model\Table\ConsultasTable&\Cake\ORM\Association\HasMany $Consultas
- * @property \App\Model\Table\ProcedimientosTable&\Cake\ORM\Association\HasMany $Procedimientos
  * @property \App\Model\Table\PresupuestosTable&\Cake\ORM\Association\HasMany $Presupuestos
- * @property \App\Model\Table\OrdenesTable&\Cake\ORM\Association\HasMany $Ordenes
- * @property \App\Model\Table\FichasFacialesTable&\Cake\ORM\Association\HasMany $FichasFaciales
- * @property \App\Model\Table\FichasProfesionalesTable&\Cake\ORM\Association\HasMany $FichasProfesionales
- * @property \App\Model\Table\FichasCosmetrariasCoralesTable&\Cake\ORM\Association\HasMany $FichasCosmetrariasCorales
- * @property \App\Model\Table\FichasMicropigmentacionTable&\Cake\ORM\Association\HasMany $FichasMicropigmentacion
- * @property \App\Model\Table\FichasLiftingTable&\Cake\ORM\Association\HasMany $FichasLifting
- * @property \App\Model\Table\PaquetesPagosTable&\Cake\ORM\Association\HasMany $PaquetesPagos
- * @property \App\Model\Table\ExamenesFisicosTable&\Cake\ORM\Association\BelongsToMany $ExamenesFisicos
  *
  * @method \App\Model\Entity\HistoriasClinica newEmptyEntity()
  * @method \App\Model\Entity\HistoriasClinica newEntity(array $data, array $options = [])
@@ -65,64 +53,12 @@ class HistoriasClinicasTable extends Table
         $this->belongsTo('Pacientes', [
             'foreignKey' => 'paciente_id',
         ]);
-        $this->belongsTo('Departamentos', [
-            'foreignKey' => 'departamento_id',
-        ]);
         $this->belongsTo('Users', [
             'foreignKey' => 'user_id',
-        ]);
-        // Relación correcta con Documentos (una historia tiene muchos documentos)
-        $this->hasMany('Documentos', [
-            'foreignKey' => 'historia_id',
-            'dependent' => true,
-        ]);
-
-        // Relación con Consultas (una historia tiene muchas consultas)
-        $this->hasMany('Consultas', [
-            'foreignKey' => 'historia_id',
-            'dependent' => true,
-        ]);
-        // Relación con Procedimientos (una historia tiene muchas procedimientos)
-        $this->hasMany('Procedimientos', [
-            'foreignKey' => 'historia_id',
-            'dependent' => true,
         ]);
         $this->hasMany('Presupuestos', [
             'foreignKey' => 'historia_id',
             'dependent' => true,
-        ]);
-        $this->hasMany('Ordenes', [
-            'foreignKey' => 'historia_id',
-            'dependent' => true,
-        ]);
-        $this->hasMany('FichasFaciales', [
-            'foreignKey' => 'historia_clinica_id',
-            'dependent' => true,
-        ]);
-        $this->hasMany('FichasProfesionales', [
-            'foreignKey' => 'historia_clinica_id',
-            'dependent' => true,
-        ]);
-        $this->hasMany('FichasCosmetrariasCorales', [
-            'foreignKey' => 'historia_clinica_id',
-            'dependent' => true,
-        ]);
-        $this->hasMany('FichasMicropigmentacion', [
-            'foreignKey' => 'historia_clinica_id',
-            'dependent' => true,
-        ]);
-        $this->hasMany('FichasLifting', [
-            'foreignKey' => 'historia_clinica_id',
-            'dependent' => true,
-        ]);
-        $this->hasMany('PaquetesPagos', [
-            'foreignKey' => 'historia_id',
-            'dependent' => true,
-        ]);
-        $this->belongsToMany('ExamenesFisicos', [
-            'through' => 'FisicosHistorias', // nombre de la tabla intermedia
-            'foreignKey' => 'historia_id', // clave foránea en la tabla intermedia que apunta a HistoriasClinicas
-            'targetForeignKey' => 'examen_id', // clave foránea en la tabla intermedia que apunta a ExamenesFisicos
         ]);
     }
 
@@ -137,18 +73,6 @@ class HistoriasClinicasTable extends Table
         $validator
             ->integer('paciente_id')
             ->allowEmptyString('paciente_id');
-
-        $validator
-            ->scalar('medicacion')
-            ->allowEmptyString('medicacion');
-
-        $validator
-            ->scalar('alergias')
-            ->allowEmptyString('alergias');
-
-        $validator
-            ->scalar('enfermedades')
-            ->allowEmptyString('enfermedades');
 
         $validator
             ->scalar('dni')
@@ -235,7 +159,6 @@ class HistoriasClinicasTable extends Table
     {
         $rules->add($rules->isUnique(['dni'], ['allowMultipleNulls' => true]), ['errorField' => 'dni']);
         $rules->add($rules->existsIn(['paciente_id'], 'Pacientes'), ['errorField' => 'paciente_id']);
-        $rules->add($rules->existsIn(['departamento_id'], 'Departamentos'), ['errorField' => 'departamento_id']);
         $rules->add($rules->existsIn(['user_id'], 'Users'), ['errorField' => 'user_id']);
 
         return $rules;

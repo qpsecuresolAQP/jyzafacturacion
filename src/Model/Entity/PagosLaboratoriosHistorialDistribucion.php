@@ -12,6 +12,7 @@ class PagosLaboratoriosHistorialDistribucion extends Entity
         'invoice_distribucion_id' => true,
         'invoice_id' => true,
         'monto_pagado' => true,
+        'conceptos' => true,
         'created' => true,
         'modified' => true,
         'pagos_laboratorios_historial' => true,

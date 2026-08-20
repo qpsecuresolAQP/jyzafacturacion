@@ -52,21 +52,10 @@ return function (RouteBuilder $routes): void {
     $routes->connect('/', ['controller' => 'Pages', 'action' => 'display', 'home']);
     $routes->connect('/logout', ['controller' => 'Users', 'action' => 'logout']);
     $routes->connect('/buscarPaciente', ['controller' => 'Pacientes', 'action' => 'buscarPaciente']);
-    $routes->connect('/buscarReceta', ['controller' => 'Recetas', 'action' => 'buscarReceta']);
-    // citas diarias
-    $routes->connect('/citas-diarias', ['controller' => 'Citas', 'action' => 'citaDiaria']);
-    // Verifica si la ruta está bien configurada en config/routes.php
-    $routes->connect('/citas/actualizar-hora', ['controller' => 'Citas', 'action' => 'actualizarHora']);
-    
+
     // Rutas para Reportes (exportación)
     $routes->get('/reportes/exportar-pdf', ['controller' => 'Reportes', 'action' => 'exportarPdf']);
     $routes->get('/reportes/exportar-excel', ['controller' => 'Reportes', 'action' => 'exportarExcel']);
-    
-    // Rutas para Recetas y Medicamentos
-    $routes->resources('Recetas');
-    $routes->resources('Medicamentos');
-    $routes->resources('FormasFarmaceuticas');
-    $routes->resources('ViasAdministracion');
     $routes->resources('RecetasMedicamentos');
     $routes->connect('/recetas/add-from-consulta/:id', ['controller' => 'Recetas', 'action' => 'addFromConsulta']);
     $routes->post('/recetas-medicamentos/buscar-medicamentos', ['controller' => 'RecetasMedicamentos', 'action' => 'buscarMedicamentos']);

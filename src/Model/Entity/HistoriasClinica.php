@@ -10,9 +10,6 @@ use Cake\ORM\Entity;
  *
  * @property int $id
  * @property int|null $paciente_id
- * @property string|null $medicacion
- * @property string|null $alergias
- * @property string|null $enfermedades
  * @property string|null $dni
  * @property \Cake\I18n\Date|null $fecha_nacimiento
  * @property int|null $edad
@@ -53,9 +50,6 @@ class HistoriasClinica extends Entity
      */
     protected array $_accessible = [
         'paciente_id' => true,
-        'medicacion' => true,
-        'alergias' => true,
-        'enfermedades' => true,
         'dni' => true,
         'fecha_nacimiento' => true,
         'edad' => true,

@@ -140,33 +140,6 @@
             <div class="col-md-10"><div class="data-box"><?= h($paciente->telefono_celular ?? '') ?></div></div>
         </div>
 
-        <!-- Departamento -->
-        <div class="row mb-3">
-            <div class="col-md-2"><p class="label-text">Procedencia:</p></div>
-            <div class="col-md-10"><div class="data-box"><?= !empty($historia->departamento->nombre) ? h($historia->departamento->nombre) : '&nbsp;' ?></div></div>
-        </div>
-
-        <!-- Campaña -->
-<?php
-$campanas = [];
-
-if (!empty($paciente->citas)) {
-    foreach ($paciente->citas as $cita) {
-        if (!empty($cita->campana)) {
-            $campanas[] = h($cita->campana->nombre);
-        }
-    }
-}
-
-$campanasTexto = !empty($campanas) ? implode(' • ', array_unique($campanas)) : 'N/A';
-?>
-
-<!-- Campañas -->
-<div class="row mb-3">
-    <div class="col-md-2"><p class="label-text">Campañas:</p></div>
-    <div class="col-md-10"><div class="data-box"><?= $campanasTexto ?></div></div>
-</div>
-
         <!-- Tratamiento de Interés -->
         <div class="row mb-3">
             <div class="col-md-2"><p class="label-text">Tratamiento de Interés:</p></div>
@@ -192,15 +165,6 @@ $campanasTexto = !empty($campanas) ? implode(' • ', array_unique($campanas)) :
                 <div class="col-md-10"><div class="data-box"><?= h($historia->antecedentes ?? '') ?></div></div>
             </div>
 
-            <div class="row mb-3">
-                <div class="col-md-2"><p class="label-text">Alergias:</p></div>
-                <div class="col-md-10"><div class="data-box"><?= h($historia->alergias ?? '') ?></div></div>
-            </div>
-
-            <div class="row mb-3">
-                <div class="col-md-2"><p class="label-text">Enfermedades:</p></div>
-                <div class="col-md-10"><div class="data-box"><?= h($historia->enfermedades ?? '') ?></div></div>
-            </div>
         <?php else: ?>
             <p class="text-center">No hay historia clínica registrada para este paciente.</p>
         <?php endif; ?>

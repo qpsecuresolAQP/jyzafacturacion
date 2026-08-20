@@ -307,11 +307,7 @@ class UsersController extends AppController
                 return $this->redirect(['controller' => 'Users', 'action' => 'login']);
             }
 
-            if ($usuario->doctor_id !== null) {
-                return $this->redirect(['controller' => 'Citas', 'action' => 'citaDiaria']);
-            }
-
-            return $this->redirect(['controller' => 'Citas', 'action' => 'index']);
+            return $this->redirect(['controller' => 'Pages', 'action' => 'display', 'home']);
         }
 
         if ($this->request->is('post') && !$result->isValid()) {

@@ -36,15 +36,7 @@ class PacientesController extends AppController
     public function exportPacientePdf($id = null)
     {
         $paciente = $this->Pacientes->get($id, contain: [
-            'Citas' => [
-                'Campanas',
-            ],
-            'HistoriasClinicas' => [
-                'Departamentos',
-                'Consultas' => [
-                    'Doctores'
-                ],
-            ],
+            'HistoriasClinicas',
         ]);
 
         // Renderizar la vista HTML como contenido para el PDF
@@ -77,11 +69,7 @@ class PacientesController extends AppController
         // consulta de pacientes activos A
         $query = $this->Pacientes->find()
             ->where(['Pacientes.estado' => 'A'])
-            ->contain([
-                'HistoriasClinicas' => [
-                    'Departamentos'
-                ]
-            ]);
+            ->contain(['HistoriasClinicas']);
         $pacientes = $this->paginate($query);
 
         $query->order(['Pacientes.id' => 'DESC']);
@@ -134,24 +122,7 @@ class PacientesController extends AppController
     {
         $paciente = $this->Pacientes->get($id, contain: [
             'HistoriasClinicas' => [
-                'Departamentos',
                 'Users',
-                'Consultas' => [
-                    'Doctores',
-                    'ConsultasCie' => [
-                        'Diagnosticoscie10'
-                    ],
-                    'Recetas' => [
-                        'RecetasMedicamentos' => [
-                            'Medicamentos',
-                            'FormasFarmaceuticas',
-                            'ViasAdministracion'
-                        ]
-                    ]
-                ],
-                'Procedimientos' => [
-                    'Doctores'
-                ],
                 'Presupuestos' => [
                     'sort' => ['Presupuestos.created' => 'DESC'],
                     'PresupuestosTratamientos' => [
@@ -162,36 +133,6 @@ class PacientesController extends AppController
                         'Invoices'
                     ]
                 ],
-                'Documentos',
-                'PaquetesPagos' => [
-                    'sort' => ['PaquetesPagos.created' => 'DESC'],
-                    'conditions' => ['PaquetesPagos.estado_paquete' => 'A'],
-                    'PaquetesPagosCuotas' => [
-                        'sort' => ['PaquetesPagosCuotas.created' => 'DESC']
-                    ]
-                ],
-            ],
-            'Recordatorios' => [
-                'conditions' => [
-                    'Recordatorios.estado_control !=' => 'I'
-                ],
-                'sort' => [
-                    'Recordatorios.fecha_inicio' => 'DESC'
-                ],
-                'RecordatorioControles' => [
-                    'conditions' => [
-                        'RecordatorioControles.estado_control !=' => 'I'
-                    ],
-                    'sort' => [
-                        'RecordatorioControles.fecha_control' => 'DESC'
-                    ]
-                ]
-            ],
-            'Citas' => [
-                'Doctores',
-                'sort' => [
-                    'Citas.fecha_hora' => 'DESC'
-                ]
             ],
         ]);
 
@@ -358,11 +299,9 @@ class PacientesController extends AppController
             $this->Flash->error(__('El paciente no pudo ser guardado. Inténtelo de nuevo.'));
         }
 
-        $departamentos = $this->Pacientes->HistoriasClinicas->Departamentos->find('list', limit: 200)->all();
-        $campanas = $this->Pacientes->Citas->Campanas->find('list', limit: 200)->all();
         $users = $this->Pacientes->HistoriasClinicas->Users->find('list', limit: 200)->all();
 
-        $this->set(compact('paciente', 'historiaClinica', 'departamentos', 'campanas', 'users', 'usuario'));
+        $this->set(compact('paciente', 'historiaClinica', 'users', 'usuario'));
     }
 
     /**
@@ -435,14 +374,12 @@ class PacientesController extends AppController
         }
 
         // Solo cargar datos para combos si hay historia
-        $departamentos = $campanas = $users = [];
+        $users = [];
         if ($historiaClinica) {
-            $departamentos = $this->Pacientes->HistoriasClinicas->Departamentos->find('list', limit: 200)->all();
-            $campanas = $this->Pacientes->Citas->Campanas->find('list', limit: 200)->all();
             $users = $this->Pacientes->HistoriasClinicas->Users->find('list', limit: 200)->all();
         }
 
-        $this->set(compact('paciente', 'historiaClinica', 'departamentos', 'campanas', 'users'));
+        $this->set(compact('paciente', 'historiaClinica', 'users'));
     }
 
 

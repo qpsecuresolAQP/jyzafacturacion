@@ -193,6 +193,8 @@ class PagosDoctoresController extends AppController
 
         $montoTotal = array_sum(array_map(fn($m) => (float) $m['pago_doctor'], $seleccionados));
 
+        $pagoHistorialId = null;
+
         $conn = $PagosDoctoresHistorial->getConnection();
         $ok = $conn->transactional(function () use (
             $PagosDoctoresHistorial,
@@ -203,7 +205,8 @@ class PagosDoctoresController extends AppController
             $fechaHasta,
             $montoTotal,
             $seleccionados,
-            $observaciones
+            $observaciones,
+            &$pagoHistorialId
         ) {
             $pagoHistorial = $PagosDoctoresHistorial->newEntity([
                 'doctor_id' => $doctorId,
@@ -219,6 +222,8 @@ class PagosDoctoresController extends AppController
                 throw new \RuntimeException('No se pudo registrar el pago: ' . json_encode($pagoHistorial->getErrors()));
             }
 
+            $pagoHistorialId = $pagoHistorial->id;
+
             foreach ($seleccionados as $mov) {
                 $detalle = $PagosDoctoresHistorialMovimientos->newEntity([
                     'pago_historial_id' => $pagoHistorial->id,
@@ -227,6 +232,7 @@ class PagosDoctoresController extends AppController
                     'metodo_pago' => $mov['metodo_pago'],
                     'base_doctor' => $mov['base_doctor'],
                     'monto_pagado' => $mov['pago_doctor'],
+                    'conceptos' => json_encode($mov['conceptos_movimiento'] ?? [], JSON_UNESCAPED_UNICODE),
                 ]);
 
                 if (!$PagosDoctoresHistorialMovimientos->save($detalle)) {
@@ -246,7 +252,7 @@ class PagosDoctoresController extends AppController
                 $montoTotal,
                 count($seleccionados)
             ));
-            return $this->redirect(['action' => 'historial']);
+            return $this->redirect(['action' => 'pdfPago', $pagoHistorialId]);
         }
 
         $this->Flash->error('No se pudo registrar el pago.');
@@ -294,6 +300,51 @@ class PagosDoctoresController extends AppController
         ]);
 
         $this->set(compact('pagoHistorial'));
+    }
+
+    /**
+     * Comprobante en PDF de un pago a doctor ya registrado: quién pagó
+     * (usuario que lo registró), a quién (doctor), cuándo, y el detalle
+     * de cada comprobante/método de pago incluido, con los conceptos
+     * (tratamientos/exámenes) que originaron el pago.
+     */
+    public function pdfPago($id)
+    {
+        $pagoHistorial = $this->fetchTable('PagosDoctoresHistorial')->get($id, [
+            'contain' => [
+                'Doctores',
+                'Users',
+                'PagosDoctoresHistorialMovimientos' => [
+                    'Invoices' => [
+                        'InvoiceItems',
+                    ],
+                ],
+            ],
+        ]);
+
+        $logoUrl = Router::url('/img/logoClinica.png', true);
+
+        $this->viewBuilder()->disableAutoLayout();
+        $this->set(compact('pagoHistorial', 'logoUrl'));
+
+        $html = $this->render('pdf_pago')->getBody()->__toString();
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('isHtml5ParserEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = sprintf('pago_doctor_%d.pdf', $pagoHistorial->id);
+
+        return $this->response
+            ->withType('application/pdf')
+            ->withStringBody($dompdf->output())
+            ->withHeader('Content-Disposition', 'inline; filename="' . $filename . '"');
     }
 
     public function exportPdf()
@@ -818,10 +869,15 @@ class PagosDoctoresController extends AppController
                 $montoNeto = round($montoRecibido * $factorNeto, 2);
 
                 // Proporción que representa este método de pago sobre el total
-                // bruto (tratamientos + exámenes) de la factura; se usa para
-                // prorratear tanto el pago al doctor como la distribución a
+                // real cobrado en la factura (incluye productos y cualquier otro
+                // ítem, no solo tratamientos+exámenes); se usa para prorratear
+                // tanto el pago al doctor como la distribución a
                 // laboratorio/materiales entre los distintos métodos de pago.
-                $proporcionMovimiento = $baseFacturaTotal > 0 ? ($montoRecibido / $baseFacturaTotal) : 0.0;
+                // Usar baseFacturaTotal aquí subestima el divisor cuando la
+                // factura tiene productos, haciendo que la suma de los pagos
+                // prorrateados supere el pago total real de la factura.
+                $totalFacturaReal = (float) $invoice->total;
+                $proporcionMovimiento = $totalFacturaReal > 0 ? ($montoRecibido / $totalFacturaReal) : 0.0;
                 $pagoDoctor = round($pagoTotalFactura * $proporcionMovimiento, 2);
 
                 if ($pagoDoctor <= 0) {
@@ -831,6 +887,18 @@ class PagosDoctoresController extends AppController
                 // Parte de la distribución (Lab/Materiales) que corresponde
                 // proporcionalmente a este método de pago específico.
                 $distribuidoEnMovimiento = round($totalDistribuido * $proporcionMovimiento, 2);
+
+                // Conceptos prorrateados a este movimiento específico (mismo
+                // criterio que el pago total del movimiento), para dejar un
+                // snapshot fiel de qué se pagó exactamente con este método.
+                $conceptosMovimiento = array_map(function ($concepto) use ($proporcionMovimiento) {
+                    $concepto['pago_doctor_item'] = round(
+                        (float) $concepto['pago_doctor_item'] * $proporcionMovimiento,
+                        2
+                    );
+
+                    return $concepto;
+                }, $conceptos);
 
                 $movimientosPagables[] = [
                     'caja_movimiento_id' => $mov->id,
@@ -846,6 +914,7 @@ class PagosDoctoresController extends AppController
                     'pago_doctor' => $pagoDoctor,
                     'estado' => $invoice->estado,
                     'conceptos' => $conceptos,
+                    'conceptos_movimiento' => $conceptosMovimiento,
                     'distribuciones' => $distribuciones,
                     'total_distribuido_movimiento' => $distribuidoEnMovimiento,
                 ];

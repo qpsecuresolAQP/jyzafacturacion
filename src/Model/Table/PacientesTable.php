@@ -12,7 +12,6 @@ use Cake\Validation\Validator;
  * Pacientes Model
  *
  * @property \App\Model\Table\HistoriasClinicasTable&\Cake\ORM\Association\HasMany $HistoriasClinicas
- * @property \App\Model\Table\RecordatoriosTable&\Cake\ORM\Association\HasMany $Recordatorios
  *
  * @method \App\Model\Entity\Paciente newEmptyEntity()
  * @method \App\Model\Entity\Paciente newEntity(array $data, array $options = [])
@@ -48,16 +47,10 @@ class PacientesTable extends Table
 
         $this->addBehavior('Timestamp');
 
-        $this->hasMany('Citas', [
-            'foreignKey' => 'paciente_id',
-        ]);
         $this->hasOne('HistoriasClinicas', [
             'foreignKey' => 'paciente_id',
         ]);
         $this->hasMany('VistaReportePacientes', [
-            'foreignKey' => 'paciente_id',
-        ]);
-        $this->hasMany('Recordatorios', [
             'foreignKey' => 'paciente_id',
         ]);
     }

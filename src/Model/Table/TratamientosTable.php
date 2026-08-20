@@ -11,8 +11,6 @@ use Cake\Validation\Validator;
 /**
  * Tratamientos Model
  *
- * @property \App\Model\Table\CitasTable&\Cake\ORM\Association\BelongsToMany $Citas
- *
  * @method \App\Model\Entity\Tratamiento newEmptyEntity()
  * @method \App\Model\Entity\Tratamiento newEntity(array $data, array $options = [])
  * @method array<\App\Model\Entity\Tratamiento> newEntities(array $data, array $options = [])
@@ -47,11 +45,6 @@ class TratamientosTable extends Table
 
         $this->addBehavior('Timestamp');
 
-        $this->belongsToMany('Citas', [
-            'foreignKey' => 'tratamiento_id',
-            'targetForeignKey' => 'cita_id',
-            'joinTable' => 'citas_tratamientos',
-        ]);
         $this->belongsToMany('Presupuestos', [
             'foreignKey' => 'tratamiento_id',
             'targetForeignKey' => 'presupuesto_id',

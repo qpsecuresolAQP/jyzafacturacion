@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use Dompdf\Dompdf;
+use Dompdf\Options;
+use Cake\Routing\Router;
+
 class PagosLaboratoriosController extends AppController
 {
     public function beforeFilter(\Cake\Event\EventInterface $event)
@@ -117,6 +121,8 @@ class PagosLaboratoriosController extends AppController
 
         $montoTotal = array_sum(array_map(fn($d) => (float) $d['monto'], $seleccionadas));
 
+        $pagoHistorialId = null;
+
         $conn = $PagosLaboratoriosHistorial->getConnection();
         $ok = $conn->transactional(function () use (
             $PagosLaboratoriosHistorial,
@@ -127,7 +133,8 @@ class PagosLaboratoriosController extends AppController
             $fechaHasta,
             $montoTotal,
             $seleccionadas,
-            $observaciones
+            $observaciones,
+            &$pagoHistorialId
         ) {
             $pagoHistorial = $PagosLaboratoriosHistorial->newEntity([
                 'laboratorio_id' => $laboratorioId,
@@ -143,12 +150,20 @@ class PagosLaboratoriosController extends AppController
                 throw new \RuntimeException('No se pudo registrar el pago: ' . json_encode($pagoHistorial->getErrors()));
             }
 
+            $pagoHistorialId = $pagoHistorial->id;
+
             foreach ($seleccionadas as $dist) {
                 $detalle = $PagosLaboratoriosHistorialDistribuciones->newEntity([
                     'pago_historial_id' => $pagoHistorial->id,
                     'invoice_distribucion_id' => $dist['invoice_distribucion_id'],
                     'invoice_id' => $dist['invoice_id'],
                     'monto_pagado' => $dist['monto'],
+                    'conceptos' => json_encode([
+                        [
+                            'descripcion' => $dist['descripcion'] ?? '-',
+                            'monto' => $dist['monto'],
+                        ],
+                    ], JSON_UNESCAPED_UNICODE),
                 ]);
 
                 if (!$PagosLaboratoriosHistorialDistribuciones->save($detalle)) {
@@ -168,7 +183,7 @@ class PagosLaboratoriosController extends AppController
                 $montoTotal,
                 count($seleccionadas)
             ));
-            return $this->redirect(['action' => 'historial']);
+            return $this->redirect(['action' => 'pdfPago', $pagoHistorialId]);
         }
 
         $this->Flash->error('No se pudo registrar el pago.');
@@ -214,6 +229,46 @@ class PagosLaboratoriosController extends AppController
         ]);
 
         $this->set(compact('pagoHistorial'));
+    }
+
+    /**
+     * Comprobante en PDF de un pago a laboratorio ya registrado: quién pagó
+     * (usuario que lo registró), a quién (laboratorio), cuándo, y el detalle
+     * de cada comprobante/distribución incluida.
+     */
+    public function pdfPago($id)
+    {
+        $pagoHistorial = $this->fetchTable('PagosLaboratoriosHistorial')->get($id, [
+            'contain' => [
+                'Laboratorios',
+                'Users',
+                'PagosLaboratoriosHistorialDistribuciones' => ['Invoices', 'InvoiceDistribuciones'],
+            ],
+        ]);
+
+        $logoUrl = Router::url('/img/logoClinica.png', true);
+
+        $this->viewBuilder()->disableAutoLayout();
+        $this->set(compact('pagoHistorial', 'logoUrl'));
+
+        $html = $this->render('pdf_pago')->getBody()->__toString();
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('isHtml5ParserEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = sprintf('pago_laboratorio_%d.pdf', $pagoHistorial->id);
+
+        return $this->response
+            ->withType('application/pdf')
+            ->withStringBody($dompdf->output())
+            ->withHeader('Content-Disposition', 'inline; filename="' . $filename . '"');
     }
 
     /**

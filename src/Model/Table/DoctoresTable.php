@@ -49,14 +49,6 @@ class DoctoresTable extends Table
         $this->setPrimaryKey('id');
 
         $this->addBehavior('Timestamp');
-        $this->hasMany('Citas', [
-            'foreignKey' => 'doctor_id',
-        ]);
-        $this->hasMany('HorariosDoctores', [
-            'foreignKey' => 'doctor_id',
-            'dependent' => true, // Si se elimina un doctor, también se eliminan sus horarios
-            'cascadeCallbacks' => true
-        ]);
         $this->belongsTo('Users', [
             'foreignKey' => 'id',
             'bindingKey' => 'doctor_id',

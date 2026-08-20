@@ -80,12 +80,6 @@ class InvoicesTable extends Table
             'cascadeCallbacks' => true,
         ]);
 
-        $this->belongsTo('ClientesFacturacion', [
-            'foreignKey' => 'cliente_facturacion_id',
-            'joinType' => 'LEFT',
-        ]);
-
-     
     }
 
     public function validationDefault(Validator $validator): Validator
@@ -276,17 +270,6 @@ class InvoicesTable extends Table
             'errorField' => 'daily_summary_id',
             'message' => 'El resumen diario no existe.',
         ]);
-
-        $rules->add(function ($entity) {
-            if (empty($entity->cliente_facturacion_id)) {
-                return true;
-            }
-            return $this->ClientesFacturacion->exists(['id' => $entity->cliente_facturacion_id]);
-        }, 'existsClienteFacturacion', [
-            'errorField' => 'cliente_facturacion_id',
-            'message' => 'El cliente de facturación no existe.',
-        ]);
-
 
         $rules->add(function ($entity) {
             if (empty($entity->doctor_id)) {

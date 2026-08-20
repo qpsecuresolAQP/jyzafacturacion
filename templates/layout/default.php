@@ -158,122 +158,6 @@
                 </li>
                 <?php endif; ?>
                 
-                <!-- Citas -->
-                <?php if ($this->Permisos->tiene('Citas', 'index')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'Citas', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-calendar-check nav-icon"></i>
-                        <p>Citas</p>
-                    </a>
-                </li>
-                <?php endif; ?>
-                
-                <!-- Citas Diarias -->
-                <?php if ($this->Permisos->tiene('Citas', 'citaDiaria')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build('/citas-diarias') ?>" class="nav-link">
-                        <i class="fas fa-calendar-check nav-icon"></i>
-                        <p>Citas del Día</p>
-                    </a>
-                </li>
-                <?php endif; ?>
-
-                <!-- Calendario Especialistas -->
-                <?php if ($this->Permisos->tiene('Citas', 'calendarioEspecialistas')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'Citas', 'action' => 'calendarioEspecialistas']) ?>" class="nav-link">
-                        <i class="fas fa-calendar-check nav-icon"></i>
-                        <p>Calendario Especialistas</p>
-                    </a>
-                </li>
-                <?php endif; ?>
-
-                <!-- Horarios de Doctores -->
-                <?php if ($this->Permisos->tiene('HorariosDoctores', 'index')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'HorariosDoctores', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-calendar-check nav-icon"></i>
-                        <p>Horarios</p>
-                    </a>
-                </li>
-                <?php endif; ?>
-                
-                <!-- Bloqueo de Horarios -->
-                <?php if ($this->Permisos->tiene('HorariosBloqueos', 'index')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'HorariosBloqueos', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-ban nav-icon"></i>
-                        <p>Bloqueo de Horarios</p>
-                    </a>
-                </li>
-                <?php endif; ?>
-                
-                <!-- Campañas -->
-                <?php if ($this->Permisos->tiene('Campañas', 'index')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'Campañas', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-file-invoice-dollar nav-icon"></i>
-                        <p>Campañas</p>
-                    </a>
-                </li>
-                <?php endif; ?>
-                
-                <!-- Consultas -->
-                <!-- <?php if ($this->Permisos->tiene('Consultas', 'index')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'Consultas', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-notes-medical nav-icon"></i>
-                        <p>Consultas</p>
-                    </a>
-                </li>
-                <?php endif; ?> -->
-                
-                <!-- Recetas Medicamentos -->
-                <!-- <?php if ($this->Permisos->tiene('RecetasMedicamentos', 'index')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'RecetasMedicamentos', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-prescription-bottle nav-icon"></i>
-                        <p>Recetas Medicamentos</p>
-                    </a>
-                </li>
-                <?php endif; ?> -->
-                
-                <!-- Medicamentos -->
-                <?php if ($this->Permisos->tiene('Medicamentos', 'index')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'Medicamentos', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-pills nav-icon"></i>
-                        <p>Medicamentos</p>
-                    </a>
-                </li>
-                <?php endif; ?>
-                
-                <!-- Formas Farmacéuticas -->
-                <?php if ($this->Permisos->tiene('FormasFarmaceuticas', 'index')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'FormasFarmaceuticas', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-capsules nav-icon"></i>
-                        <p>Formas Farmacéuticas</p>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'ViasAdministracion', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-syringe nav-icon"></i>
-                        <p>Vías de Administración</p>
-                    </a>
-                </li>
-                <?php endif; ?>
-                
-                <!-- Departamentos -->
-                <?php if ($this->Permisos->tiene('Departamentos', 'index')): ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'Departamentos', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-solid fa-city nav-icon"></i>
-                        <p>Procedencia</p>
-                    </a>
-                </li>
-                <?php endif; ?>
-                
                 <!-- Especialistas/Doctores -->
                 <?php if ($this->Permisos->tiene('Doctores', 'index')): ?>
                 <li class="nav-item">
@@ -349,51 +233,8 @@
                 </li>
                 <?php endif; ?>
 
-                <!-- Reportes (Solo si tiene acceso a alguno) -->
-                <?php if ($this->Permisos->tieneAlguno([
-                    ['controller' => 'VistaPacientesCampanas', 'action' => 'index'],
-                    ['controller' => 'VistaReportePacientes', 'action' => 'index'],
-                    ['controller' => 'VistaConsultasProcedimientos', 'action' => 'index'],
-                    ['controller' => 'Citas', 'action' => 'reportecitas'],
-                    ['controller' => 'RecordatorioControles', 'action' => 'reportes'],
-                    ['controller' => 'VistaReporteProductos', 'action' => 'index'],
-                    ['controller' => 'Ordenes', 'action' => 'reporteOrdenes'],
-                ])): ?>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <i class="nav-icon fas fa-chart-line"></i>
-                        <p>
-                            Reportes
-                            <i class="fas fa-angle-left right"></i>
-                        </p>
-                    </a>
-                    <ul class="nav nav-treeview">
-                        
-                        <?php if ($this->Permisos->tiene('Citas', 'reportecitas')): ?>
-                        <li class="nav-item">
-                            <a href="<?= $this->Url->build(['controller' => 'Citas', 'action' => 'reportecitas']) ?>" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>Citas</p>
-                            </a>
-                        </li>
-                        <?php endif; ?>
-
-                        <?php if ($this->Permisos->tiene('RecordatorioControles', 'index')): ?>
-                        <li class="nav-item">
-                            <a href="<?= $this->Url->build(['controller' => 'RecordatorioControles', 'action' => 'reportes']) ?>" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>Recordatorios</p>
-                            </a>
-                        </li>
-                        <?php endif; ?>
-
-                    </ul>
-                </li>
-                <?php endif; ?>
-                
                 <!-- Inventarios (Solo si tiene acceso a alguno) -->
                 <?php if ($this->Permisos->tieneAlguno([
-                    ['controller' => 'Cajas', 'action' => 'index'],
                     ['controller' => 'Productos', 'action' => 'index'],
                     ['controller' => 'Categorias', 'action' => 'index'],
                     ['controller' => 'Proveedores', 'action' => 'index'],
@@ -414,14 +255,6 @@
                             <a href="<?= $this->Url->build(['controller' => 'PanelInventario', 'action' => 'index']) ?>" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>Panel de Inventario</p>
-                            </a>
-                        </li>
-                        <?php endif; ?>
-                        <?php if ($this->Permisos->tiene('Cajas', 'index')): ?>
-                        <li class="nav-item">
-                            <a href="<?= $this->Url->build(['controller' => 'Cajas', 'action' => 'index']) ?>" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>Cajas</p>
                             </a>
                         </li>
                         <?php endif; ?>
@@ -453,6 +286,14 @@
 
                     </ul>
                 </li>
+                <?php if ($this->Permisos->tiene('Cajas', 'index')): ?>
+                <li class="nav-item">
+                    <a href="<?= $this->Url->build(['controller' => 'Cajas', 'action' => 'index']) ?>" class="nav-link">
+                        <i class="fas fa-cash-register nav-icon"></i>
+                        <p>Cajas</p>
+                    </a>
+                </li>
+                <?php endif; ?>
                 <li class="nav-item">
                     <a href="<?= $this->Url->build(['controller' => 'Invoices', 'action' => 'index']) ?>" class="nav-link">
                         <i class="fas fa-file-invoice nav-icon"></i>
@@ -469,9 +310,18 @@
                         <p>Reportes Comprobantes</p>
                     </a>
                 </li>
-                
+
                 <?php endif; ?>
-                
+
+                <?php if ($this->Permisos->tiene('Finanzas', 'index')): ?>
+                <li class="nav-item">
+                    <a href="<?= $this->Url->build(['controller' => 'Finanzas', 'action' => 'index']) ?>" class="nav-link">
+                        <i class="fas fa-chart-pie nav-icon"></i>
+                        <p>Finanzas</p>
+                    </a>
+                </li>
+                <?php endif; ?>
+
                 <!-- SECCIÓN ADMINISTRACIÓN - Solo super administrador -->
                 <li class="nav-header">ADMINISTRACIÓN</li>
                 

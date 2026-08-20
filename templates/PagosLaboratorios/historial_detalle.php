@@ -10,9 +10,14 @@
             <i class="fas fa-receipt"></i> Detalle de Pago #<?= h($pagoHistorial->id) ?>
         </h3>
 
-        <a href="<?= $this->Url->build(['action' => 'historial']) ?>" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Volver al Historial
-        </a>
+        <div class="d-flex gap-2">
+            <a href="<?= $this->Url->build(['action' => 'pdfPago', $pagoHistorial->id]) ?>" class="btn btn-outline-danger" target="_blank">
+                <i class="fas fa-file-pdf"></i> Descargar PDF
+            </a>
+            <a href="<?= $this->Url->build(['action' => 'historial']) ?>" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Historial
+            </a>
+        </div>
     </div>
 
     <div class="row mb-4">

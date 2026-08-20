@@ -2,8 +2,6 @@
 /**
  * @var \App\View\AppView $this
  * @var \App\Model\Entity\Paciente $paciente
- * @var \Cake\Collection\CollectionInterface|string[] $departamentos
- * @var \Cake\Collection\CollectionInterface|string[] $campanas
  * @var \Cake\Collection\CollectionInterface|string[] $users
  */
 ?>
@@ -67,15 +65,6 @@
             'label' => 'Sexo'
         ]); ?>
     </div>
-    <div class="col-md-6 mb-3">
-        <?= $this->Form->control('historiaClinica.departamento_id', [
-            'options' => $departamentos,
-            'class' => 'form-control',
-            'empty' => 'Seleccione Departamento',
-            'label' => 'Procedencia'
-        ]) ?>
-    </div>
-
     <!-- Direccion -->
     <div class="col-md-6 mb-3">
         <?= $this->Form->control('historiaClinica.direccion', ['class' => 'form-control', 'label' => 'Dirección']) ?>
@@ -113,15 +102,6 @@
     </div>
     <div class="col-md-12 mb-3">
         <?= $this->Form->control('historiaClinica.parentesco', ['class' => 'form-control', 'label' => 'Parentesco']) ?>
-    </div>
-    <div class="col-md-12 mb-3">
-        <?= $this->Form->control('historiaClinica.medicacion', ['class' => 'form-control', 'label' => 'Medicación']) ?>
-    </div>
-    <div class="col-md-12 mb-3">
-        <?= $this->Form->control('historiaClinica.alergias', ['class' => 'form-control', 'label' => 'Reacciones adversas a medicamentos']) ?>
-    </div>
-    <div class="col-md-12 mb-3">
-        <?= $this->Form->control('historiaClinica.enfermedades', ['class' => 'form-control', 'label' => 'Enfermedades']) ?>
     </div>
     <div class="col-md-12 mb-3">
         <?= $this->Form->control('historiaClinica.recomendado', ['class' => 'form-control', 'label' => 'Recomendado por']) ?>

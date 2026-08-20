@@ -202,14 +202,6 @@ if ($busquedaDocumento !== '') {
                 'order' => ['id' => 'DESC']
             ])->toArray();
 
-            $clientesFacturacion = $this->Invoices->ClientesFacturacion->find()
-                ->contain(['Companies'])
-                ->order([
-                    'ClientesFacturacion.nombre_razon_social' => 'ASC'
-                ])
-                ->all()
-                ->toList();
-
             $tratamientos = $this->Invoices->InvoiceItems->Tratamientos->find()
                 ->select(['id', 'nombre', 'costo'])
                 ->where(['estado' => 1])
@@ -396,7 +388,6 @@ if ($busquedaDocumento !== '') {
                 'productos',
                 'examenes',
                 'historiasClinicas',
-                'clientesFacturacion',
                 'tratamientos',
                 'doctores',
                 'laboratorios',
@@ -1314,7 +1305,6 @@ if ($busquedaDocumento !== '') {
             'Pacientes',
             'HistoriasClinicas',
             'InvoiceItems',
-            'ClientesFacturacion',
         ],
     ]);
 
@@ -1610,7 +1600,6 @@ public function comprobanteCuota($cuotaId)
                 'Pacientes',
                 'HistoriasClinicas',
                 'InvoiceItems' => ['Tratamientos'],
-                'ClientesFacturacion',
             ],
         ],
     ]);
@@ -1999,7 +1988,6 @@ public function comprobanteCuota($cuotaId)
                 'Pacientes',
                 'HistoriasClinicas',
                 'InvoiceItems' => ['Tratamientos'],
-                'ClientesFacturacion',
                 'CajaMovimientos',
             ],
         ]);
@@ -2144,7 +2132,6 @@ public function comprobanteCuota($cuotaId)
                 'Pacientes',
                 'HistoriasClinicas',
                 'InvoiceItems' => ['Tratamientos'],
-                'ClientesFacturacion',
             ],
         ]);
 
