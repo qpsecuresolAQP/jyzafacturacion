@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: spaziodentale_app
+    container_name: jyzafacturacion_app
     restart: unless-stopped
     environment:
       DEBUG: "${DEBUG:-false}"
@@ -22,7 +22,7 @@ services:
       - app_logs:/var/www/html/logs
       - app_tmp:/var/www/html/tmp
     networks:
-      - spaziodentale_net
+      - jyzafacturacion_net
       - main_npm_network
     healthcheck:
       test: ["CMD", "php", "-r", "exit(0)"]
@@ -32,7 +32,7 @@ services:
 
   db:
     image: mysql:8.0
-    container_name: spaziodentale_db
+    container_name: jyzafacturacion_db
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
@@ -42,10 +42,10 @@ services:
     ports:
       - "${DB_PORT:-3307}:3306"
     volumes:
-      - spaziodentale_db_data:/var/lib/mysql
+      - jyzafacturacion_db_data:/var/lib/mysql
       - ./init-db:/docker-entrypoint-initdb.d:ro
     networks:
-      - spaziodentale_net
+      - jyzafacturacion_net
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
@@ -54,7 +54,7 @@ services:
       start_period: 30s
 
 networks:
-  spaziodentale_net:
+  jyzafacturacion_net:
     driver: bridge
   main_npm_network:
     external: true
@@ -62,4 +62,4 @@ networks:
 volumes:
   app_logs:
   app_tmp:
-  spaziodentale_db_data:
+  jyzafacturacion_db_data:
