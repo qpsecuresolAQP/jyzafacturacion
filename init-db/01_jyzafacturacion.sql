@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 20-08-2026 a las 07:36:31
+-- Tiempo de generación: 21-08-2026 a las 05:53:07
 -- Versión del servidor: 10.6.19-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -275,7 +275,6 @@ CREATE TABLE `historias_clinicas` (
   `dni` varchar(20) DEFAULT NULL,
   `fecha_nacimiento` date DEFAULT NULL,
   `edad` int(11) DEFAULT NULL,
-  `departamento_id` int(11) DEFAULT NULL,
   `sexo` varchar(2) DEFAULT NULL,
   `tipo_orden` varchar(255) DEFAULT NULL,
   `user_id` int(11) DEFAULT NULL,
@@ -1193,33 +1192,6 @@ CREATE TABLE `usuarios_permisos` (
 -- --------------------------------------------------------
 
 --
--- Estructura Stand-in para la vista `vista_consultas_procedimientos`
--- (Véase abajo para la vista actual)
---
-CREATE TABLE `vista_consultas_procedimientos` (
-);
-
--- --------------------------------------------------------
-
---
--- Estructura Stand-in para la vista `vista_pacientes_campanas`
--- (Véase abajo para la vista actual)
---
-CREATE TABLE `vista_pacientes_campanas` (
-);
-
--- --------------------------------------------------------
-
---
--- Estructura Stand-in para la vista `vista_reporte_pacientes`
--- (Véase abajo para la vista actual)
---
-CREATE TABLE `vista_reporte_pacientes` (
-);
-
--- --------------------------------------------------------
-
---
 -- Estructura Stand-in para la vista `vista_reporte_productos`
 -- (Véase abajo para la vista actual)
 --
@@ -1245,33 +1217,6 @@ CREATE TABLE `vista_reporte_productos` (
 ,`created` datetime
 ,`modified` datetime
 );
-
--- --------------------------------------------------------
-
---
--- Estructura para la vista `vista_consultas_procedimientos`
---
-DROP TABLE IF EXISTS `vista_consultas_procedimientos`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_consultas_procedimientos`  AS SELECT `h`.`dni` AS `dni`, `p`.`nombre` AS `nombre`, `p`.`apellido` AS `apellido`, `c`.`motivo` AS `motivo`, NULL AS `procedimiento`, `c`.`modified` AS `fecha_registro`, `d`.`nombre` AS `doctor_nombre`, `d`.`apellido` AS `doctor_apellido` FROM (((`consultas` `c` join `historias_clinicas` `h` on(`c`.`historia_id` = `h`.`id`)) join `pacientes` `p` on(`h`.`paciente_id` = `p`.`id`)) left join `doctores` `d` on(`c`.`doctor_id` = `d`.`id`))union all select `h`.`dni` AS `dni`,`p`.`nombre` AS `nombre`,`p`.`apellido` AS `apellido`,NULL AS `motivo`,`pr`.`procedimiento` AS `procedimiento`,`pr`.`modified` AS `fecha_registro`,`d`.`nombre` AS `doctor_nombre`,`d`.`apellido` AS `doctor_apellido` from (((`procedimientos` `pr` join `historias_clinicas` `h` on(`pr`.`historia_id` = `h`.`id`)) join `pacientes` `p` on(`h`.`paciente_id` = `p`.`id`)) left join `doctores` `d` on(`pr`.`doctor_id` = `d`.`id`))  ;
-
--- --------------------------------------------------------
-
---
--- Estructura para la vista `vista_pacientes_campanas`
---
-DROP TABLE IF EXISTS `vista_pacientes_campanas`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_pacientes_campanas`  AS SELECT `p`.`id` AS `paciente_id`, `p`.`nombre` AS `nombre`, `p`.`apellido` AS `apellido`, `hc`.`dni` AS `dni`, `hc`.`ocupacion` AS `ocupacion`, `hc`.`fecha_nacimiento` AS `fecha_nacimiento`, `cpn`.`id` AS `campana_id`, `cpn`.`nombre` AS `nombre_campana`, `ct`.`fecha_hora` AS `fecha_consulta` FROM (((`pacientes` `p` join `historias_clinicas` `hc` on(`hc`.`paciente_id` = `p`.`id`)) join `citas` `ct` on(`ct`.`paciente_id` = `p`.`id`)) join `campañas` `cpn` on(`cpn`.`id` = `ct`.`campana_id`)) ;
-
--- --------------------------------------------------------
-
---
--- Estructura para la vista `vista_reporte_pacientes`
---
-DROP TABLE IF EXISTS `vista_reporte_pacientes`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_reporte_pacientes`  AS SELECT `p`.`id` AS `paciente_id`, `p`.`nombre` AS `nombre_paciente`, `p`.`apellido` AS `apellido_paciente`, `p`.`created` AS `modified`, `u`.`id` AS `usuario_id`, `u`.`username` AS `nombre_usuario`, `d`.`id` AS `departamento_id`, `d`.`nombre` AS `nombre_departamento` FROM ((((`pacientes` `p` join `historias_clinicas` `hc` on(`hc`.`paciente_id` = `p`.`id`)) join `departamentos` `d` on(`hc`.`departamento_id` = `d`.`id`)) join `citas` `c` on(`c`.`paciente_id` = `p`.`id`)) join `users` `u` on(`c`.`user_id` = `u`.`id`)) ;
 
 -- --------------------------------------------------------
 
@@ -1379,7 +1324,6 @@ ALTER TABLE `historias_clinicas`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `dni` (`dni`),
   ADD KEY `fk_historia_paciente` (`paciente_id`),
-  ADD KEY `departamento_id` (`departamento_id`),
   ADD KEY `user_id` (`user_id`);
 
 --
@@ -1810,7 +1754,6 @@ ALTER TABLE `examenes`
 --
 ALTER TABLE `historias_clinicas`
   ADD CONSTRAINT `historias_clinicas_ibfk_1` FOREIGN KEY (`paciente_id`) REFERENCES `pacientes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `historias_clinicas_ibfk_2` FOREIGN KEY (`departamento_id`) REFERENCES `departamentos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `historias_clinicas_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
