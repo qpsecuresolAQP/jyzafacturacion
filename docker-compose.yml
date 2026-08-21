@@ -1,8 +1,6 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: jyzafacturacion-app:latest
     container_name: jyzafacturacion_app
     restart: unless-stopped
     environment:
@@ -23,7 +21,7 @@ services:
       - app_tmp:/var/www/html/tmp
     networks:
       - jyzafacturacion_net
-      - main_npm_network
+      - npm_proxy
     healthcheck:
       test: ["CMD", "php", "-r", "exit(0)"]
       interval: 10s
@@ -56,7 +54,7 @@ services:
 networks:
   jyzafacturacion_net:
     driver: bridge
-  main_npm_network:
+  npm_proxy:
     external: true
 
 volumes:

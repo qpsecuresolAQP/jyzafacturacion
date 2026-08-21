@@ -23,6 +23,7 @@ Thumbs.db
 # Misc
 node_modules/
 *.log
+*.tar
 
 # OS generated files #
 ######################
