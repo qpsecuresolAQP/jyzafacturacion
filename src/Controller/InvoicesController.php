@@ -483,10 +483,10 @@ if ($busquedaDocumento !== '') {
                 $serie = 'RI';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             } elseif ($tipoDoc === '03') {
-                $serie = 'B003';
+                $serie = 'B001';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             } elseif ($tipoDoc === '01') {
-                $serie = 'F003';
+                $serie = 'F001';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             }
 
