@@ -108,6 +108,21 @@
                 </div>
 
                 <div class="col-md-6 mb-3">
+                    <?= $this->Form->control('gasto_materiales', [
+                        'label'       => 'Gasto en Materiales (S/)',
+                        'class'       => 'form-control',
+                        'placeholder' => 'Ej: 5.00',
+                        'type'        => 'number',
+                        'step'        => '0.01',
+                        'min'         => '0',
+                    ]) ?>
+                    <small class="text-muted">
+                        Costo estimado de los materiales usados para este examen (opcional). Se descuenta
+                        del precio para calcular la utilidad real.
+                    </small>
+                </div>
+
+                <div class="col-md-6 mb-3">
                     <?= $this->Form->control('estado', [
                         'label'   => 'Activo',
                         'type'    => 'checkbox',

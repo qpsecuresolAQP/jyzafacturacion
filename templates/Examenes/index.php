@@ -49,6 +49,7 @@
                         <th><?= $this->Paginator->sort('precio_convenio', 'Convenio Lab. (S/)') ?></th>
                         <th>Laboratorio</th>
                         <th><?= $this->Paginator->sort('comision_medico', 'Comisión Médico (S/)') ?></th>
+                        <th><?= $this->Paginator->sort('gasto_materiales', 'Materiales (S/)') ?></th>
                         <th><?= $this->Paginator->sort('estado', 'Estado') ?></th>
                         <th class="actions text-dark"><?= __('Acciones') ?></th>
                     </tr>
@@ -66,6 +67,13 @@
                         <td>
                             <?php if ($examen->comision_medico > 0): ?>
                                 S/ <?= number_format((float) $examen->comision_medico, 2) ?>
+                            <?php else: ?>
+                                <span class="text-muted">-</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($examen->gasto_materiales > 0): ?>
+                                S/ <?= number_format((float) $examen->gasto_materiales, 2) ?>
                             <?php else: ?>
                                 <span class="text-muted">-</span>
                             <?php endif; ?>

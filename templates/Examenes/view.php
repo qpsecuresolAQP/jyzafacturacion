@@ -51,6 +51,28 @@
             </div>
 
             <div class="row mb-3">
+                <div class="col-md-3"><strong>Gasto en Materiales:</strong></div>
+                <div class="col-md-9">
+                    <?= $examene->gasto_materiales > 0
+                        ? 'S/ ' . number_format((float) $examene->gasto_materiales, 2)
+                        : '<span class="text-muted">No aplica</span>' ?>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Utilidad Estimada:</strong></div>
+                <div class="col-md-9">
+                    <?php
+                    $utilidadExamen = (float) $examene->precio - (float) $examene->comision_medico - (float) $examene->gasto_materiales;
+                    ?>
+                    <span class="fw-bold <?= $utilidadExamen >= 0 ? 'text-success' : 'text-danger' ?>">
+                        S/ <?= number_format($utilidadExamen, 2) ?>
+                    </span>
+                    <small class="text-muted d-block">Precio − Comisión Médico − Materiales (no incluye convenio de laboratorio)</small>
+                </div>
+            </div>
+
+            <div class="row mb-3">
                 <div class="col-md-3"><strong>Estado:</strong></div>
                 <div class="col-md-9">
                     <span class="badge bg-<?= $examene->estado ? 'success' : 'secondary' ?>">

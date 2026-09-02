@@ -51,6 +51,30 @@
                     </div>
                 </div>
 
+                <!-- Gasto en materiales -->
+                <div class="col-md-12 mb-3">
+                    <label class="fw-bold">Gasto en Materiales (S/)</label>
+                    <div class="form-control bg-light">
+                        <?= $tratamiento->gasto_materiales > 0
+                            ? 'S/ ' . number_format((float)$tratamiento->gasto_materiales, 2)
+                            : 'No definido' ?>
+                    </div>
+                </div>
+
+                <!-- Utilidad estimada -->
+                <div class="col-md-12 mb-3">
+                    <label class="fw-bold">Utilidad Estimada (S/)</label>
+                    <?php
+                    $utilidad = (float)$tratamiento->costo - (float)$tratamiento->monto_fijo_pago - (float)$tratamiento->gasto_materiales;
+                    ?>
+                    <div class="form-control bg-light">
+                        <span class="fw-bold <?= $utilidad >= 0 ? 'text-success' : 'text-danger' ?>">
+                            S/ <?= number_format($utilidad, 2) ?>
+                        </span>
+                        <small class="text-muted d-block">Costo − Pago Doctor − Materiales</small>
+                    </div>
+                </div>
+
                 <!-- Estado -->
                 <div class="col-md-12 mb-3">
                     <label class="fw-bold">Estado</label>

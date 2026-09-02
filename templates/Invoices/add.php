@@ -186,14 +186,8 @@
                                     <p class="text-muted mb-0" id="no-items-placeholder">No hay items agregados. Usa los botones de abajo para agregar un tratamiento, producto o examen.</p>
                                 </div>
                                 <div class="d-flex gap-2 flex-wrap mt-2">
-                                    <button type="button" class="btn btn-sm btn-outline-info" id="btn-add-tratamiento">
-                                        <i class="fas fa-tooth me-1"></i>Agregar Tratamiento
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-info" id="btn-add-producto">
-                                        <i class="fas fa-box me-1"></i>Agregar Producto
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-info" id="btn-add-examen">
-                                        <i class="fas fa-flask me-1"></i>Agregar Examen
+                                    <button type="button" class="btn btn-sm btn-outline-info" id="btn-add-item">
+                                        <i class="fas fa-plus me-1"></i>Agregar Item
                                     </button>
                                 </div>
                             </div>
@@ -307,46 +301,6 @@
                             </div>
                         </div>
 
-                        <!-- SECCIÓN 5: DISTRIBUCIÓN DEL COBRO -->
-                        <div class="card card-flush mb-4 border-0 border-top border-5 border-warning">
-                            <div class="card-header bg-white border-bottom">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0 fw-bold text-warning">
-                                        <i class="fas fa-flask me-2"></i>Distribución del Cobro (Laboratorio / Materiales)
-                                    </h6>
-                                    <button type="button" class="btn btn-sm btn-warning" id="btn-add-distribucion">
-                                        <i class="fas fa-plus me-1"></i>Agregar Distribución
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="card-body pt-4 pb-4">
-                                <p class="text-muted small mb-3">
-                                    Opcional: separa parte del monto cobrado para uno o más laboratorios y/o materiales.
-                                    El resto queda como pago para doctor/clínica.
-                                </p>
-                                <div id="distribuciones-container">
-                                    <!-- Se agregarán dinámicamente -->
-                                </div>
-
-                                <input type="hidden" name="distribuciones_json" id="distribuciones_json" value="[]">
-
-                                <div class="row mt-4">
-                                    <div class="col-md-12">
-                                        <div class="alert alert-warning border-3 border-warning mb-0" id="resumen-distribucion">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span class="fw-bold fs-6">Distribuido (Laboratorio/Materiales):</span>
-                                                <h5 class="mb-0 fw-bold" id="total-distribuido">S/ 0.00</h5>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center mt-1">
-                                                <span class="fw-bold fs-6">Restante (Doctor/Clínica):</span>
-                                                <h5 class="mb-0 text-success fw-bold" id="total-restante-clinica">S/ 0.00</h5>
-                                            </div>
-                                            <div id="distribucion-alert" class="mt-2" style="display: none;"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
                         <!-- BOTONES DE ACCIÓN -->
                         <div class="row mt-5">
@@ -658,9 +612,7 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
     const facturaFields = document.getElementById('factura-fields');
 
     const itemsContainer = document.getElementById('items-container');
-    const btnAddTratamiento = document.getElementById('btn-add-tratamiento');
-    const btnAddProducto = document.getElementById('btn-add-producto');
-    const btnAddExamen = document.getElementById('btn-add-examen');
+    const btnAddItem = document.getElementById('btn-add-item');
 
     const btnAddPaymentMethod = document.getElementById('btn-add-payment-method');
     const paymentMethodsContainer = document.getElementById('payment-methods-container');
@@ -672,20 +624,6 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
     
     let paymentMethods = [];
     let paymentMethodCounter = 0;
-
-    const btnAddDistribucion = document.getElementById('btn-add-distribucion');
-    const distribucionesContainer = document.getElementById('distribuciones-container');
-    const distribucionesJson = document.getElementById('distribuciones_json');
-    const totalDistribuidoEl = document.getElementById('total-distribuido');
-    const totalRestanteClinicaEl = document.getElementById('total-restante-clinica');
-    const distribucionAlert = document.getElementById('distribucion-alert');
-
-    let distribuciones = [];
-    let distribucionCounter = 0;
-
-    const laboratorios = <?= json_encode(array_map(function ($nombre, $id) {
-        return ['id' => $id, 'nombre' => $nombre];
-    }, $laboratorios ?? [], array_keys($laboratorios ?? [])), JSON_UNESCAPED_UNICODE) ?>;
 
     const tratamientos = <?= json_encode(array_map(function ($t) {
         return [
@@ -844,7 +782,6 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
     }
 
     paymentMethodsJson.value = JSON.stringify(paymentMethods);
-    actualizarDistribucion();
 
     // NUEVO: si estamos en modo crédito, mantener el resumen de cuotas actualizado
     if (formaPagoSelect && formaPagoSelect.value === 'CREDITO') {
@@ -956,189 +893,32 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
         });
     }
 
-    function addDistribucion() {
-        const dist = {
-            id: distribucionCounter++,
-            tipo: 'LABORATORIO',
-            laboratorio_id: laboratorios.length > 0 ? laboratorios[0].id : '',
-            monto: 0,
-            descripcion: ''
-        };
-
-        distribuciones.push(dist);
-        renderDistribuciones();
-        actualizarDistribucion();
-    }
-
-    function removeDistribucion(id) {
-        distribuciones = distribuciones.filter(d => d.id !== id);
-        renderDistribuciones();
-        actualizarDistribucion();
-    }
-
-    function updateDistribucion(id, field, value) {
-        const dist = distribuciones.find(d => d.id === id);
-        if (dist) {
-            dist[field] = field === 'monto' ? parseFloat(value || 0) : value;
-            actualizarDistribucion();
+    function setTipoItemBadge(row, tipo) {
+        const badge = tipoItemBadges[tipo] || tipoItemBadges.tratamiento;
+        const badgeEl = row.querySelector('.tipo-item-badge');
+        const badgeIcon = row.querySelector('.tipo-item-badge-icon');
+        const badgeLabel = row.querySelector('.tipo-item-badge-label');
+        row.querySelector('.tipo-item-select').value = tipo;
+        if (badgeEl) {
+            badgeEl.className = `badge bg-${badge.color} py-2 px-3 tipo-item-badge`;
         }
+        if (badgeIcon) badgeIcon.className = `fas ${badge.icon} me-1 tipo-item-badge-icon`;
+        if (badgeLabel) badgeLabel.textContent = badge.label;
     }
 
-    function renderDistribuciones() {
-        distribucionesContainer.innerHTML = '';
-
-        if (distribuciones.length === 0) {
-            distribucionesContainer.innerHTML = '<p class="text-muted">No hay distribuciones agregadas.</p>';
-            return;
-        }
-
-        distribuciones.forEach(dist => {
-            const div = document.createElement('div');
-            div.className = 'row g-3 mb-3 p-3 border rounded bg-light';
-
-            const laboratorioOptions = laboratorios.map(
-                lab => `<option value="${lab.id}" ${String(dist.laboratorio_id) === String(lab.id) ? 'selected' : ''}>${lab.nombre}</option>`
-            ).join('');
-
-            div.innerHTML = `
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Tipo</label>
-                    <select class="form-select form-select-solid tipo-distribucion-select" id="tipo-dist-${dist.id}">
-                        <option value="LABORATORIO" ${dist.tipo === 'LABORATORIO' ? 'selected' : ''}>Laboratorio</option>
-                        <option value="MATERIALES" ${dist.tipo === 'MATERIALES' ? 'selected' : ''}>Materiales</option>
-                    </select>
-                </div>
-                <div class="col-md-4 laboratorio-select-wrap" style="${dist.tipo === 'MATERIALES' ? 'display:none;' : ''}">
-                    <label class="form-label fw-semibold">Laboratorio</label>
-                    <select class="form-select form-select-solid laboratorio-select" id="laboratorio-dist-${dist.id}">
-                        ${laboratorioOptions || '<option value="">-- Sin laboratorios registrados --</option>'}
-                    </select>
-                </div>
-                <div class="col-md-3 monto-dist-wrap" style="${dist.tipo === 'MATERIALES' ? 'flex:0 0 58.333%;max-width:58.333%;' : ''}">
-                    <label class="form-label fw-semibold">Monto</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light">S/</span>
-                        <input type="number" step="0.01" min="0" class="form-control form-control-solid monto-dist-input"
-                            id="monto-dist-${dist.id}"
-                            placeholder="0.00"
-                            value="${dist.monto.toFixed(2)}"
-                            inputmode="decimal" onwheel="return false;">
-                    </div>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="button" class="btn btn-outline-danger btn-sm w-100" id="btn-remove-dist-${dist.id}">
-                        <i class="fas fa-trash"></i> Eliminar
-                    </button>
-                </div>
-                <div class="col-md-12 mt-2">
-                    <label class="form-label fw-semibold">Descripción</label>
-                    <input type="text" class="form-control form-control-solid descripcion-dist-input"
-                        id="descripcion-dist-${dist.id}"
-                        placeholder="Detalle de la distribución (ej. nombre del material, referencia, etc.)"
-                        value="${escapeHtml(dist.descripcion || '')}">
-                </div>
-            `;
-
-            distribucionesContainer.appendChild(div);
-
-            const selectTipo = document.getElementById(`tipo-dist-${dist.id}`);
-            const selectLaboratorio = document.getElementById(`laboratorio-dist-${dist.id}`);
-            const inputMonto = document.getElementById(`monto-dist-${dist.id}`);
-            const inputDescripcion = document.getElementById(`descripcion-dist-${dist.id}`);
-            const btnRemove = document.getElementById(`btn-remove-dist-${dist.id}`);
-
-            selectTipo.addEventListener('change', (e) => {
-                updateDistribucion(dist.id, 'tipo', e.target.value);
-                renderDistribuciones();
-            });
-            if (selectLaboratorio) {
-                selectLaboratorio.addEventListener('change', (e) => {
-                    updateDistribucion(dist.id, 'laboratorio_id', e.target.value);
-                });
-            }
-            inputMonto.addEventListener('input', (e) => {
-                updateDistribucion(dist.id, 'monto', e.target.value);
-            });
-            inputDescripcion.addEventListener('input', (e) => {
-                updateDistribucion(dist.id, 'descripcion', e.target.value);
-            });
-            btnRemove.addEventListener('click', () => removeDistribucion(dist.id));
-        });
-    }
-
-    function actualizarDistribucion() {
-        const totalFactura = calcularTotalFormulario();
-        const totalDistribuido = distribuciones.reduce((sum, d) => sum + parseFloat(d.monto || 0), 0);
-        const restante = Math.round((totalFactura - totalDistribuido) * 100) / 100;
-
-        totalDistribuidoEl.textContent = `S/ ${totalDistribuido.toFixed(2)}`;
-        totalRestanteClinicaEl.textContent = `S/ ${restante.toFixed(2)}`;
-
-        if (restante < 0) {
-            distribucionAlert.style.display = 'block';
-            distribucionAlert.innerHTML = `<strong class="text-danger">⚠️ La distribución (S/ ${totalDistribuido.toFixed(2)}) supera el total de la factura (S/ ${totalFactura.toFixed(2)})</strong>`;
-        } else {
-            distribucionAlert.style.display = 'none';
-        }
-
-        if (distribucionesJson) distribucionesJson.value = JSON.stringify(distribuciones);
-    }
-
-    function toggleItemType(row) {
-        const tipoItem = row.querySelector('.tipo-item-select').value;
-        const tratamientoWrap = row.querySelector('.tratamiento-wrap');
-        const productoWrap = row.querySelector('.producto-wrap');
-        const examenWrap = row.querySelector('.examen-wrap');
-        const searchTratamiento = row.querySelector('.search-tratamiento');
-        const searchProducto = row.querySelector('.search-producto');
-        const searchExamen = row.querySelector('.search-examen');
-        const descripcionInput = row.querySelector('.descripcion-input');
-        const precioInput = row.querySelector('.precio-input');
-        const codigoInput = row.querySelector('.codigo-input');
-        const unidadInput = row.querySelector('.unidad-input');
+    function limpiarSeleccionItem(row) {
+        row.querySelector('.tratamiento-id').value = '';
+        row.querySelector('.producto-id').value = '';
+        row.querySelector('.examen-id').value = '';
+        row.querySelector('.descripcion-input').value = '';
+        row.querySelector('.precio-input').value = '';
+        row.querySelector('.codigo-input').value = '';
+        row.querySelector('.unidad-input').value = 'NIU';
         const stockHelp = row.querySelector('.stock-help');
-        const resultadosTratamiento = row.querySelector('.resultados-tratamiento');
-        const resultadosProducto = row.querySelector('.resultados-producto');
-        const resultadosExamen = row.querySelector('.resultados-examen');
-
-        tratamientoWrap.style.display = 'none';
-        productoWrap.style.display = 'none';
-        if (examenWrap) examenWrap.style.display = 'none';
-
-        if (tipoItem === 'producto') {
-            productoWrap.style.display = 'block';
-            if (searchTratamiento) searchTratamiento.value = '';
-            if (resultadosTratamiento) resultadosTratamiento.innerHTML = '';
-            if (searchExamen) searchExamen.value = '';
-            if (resultadosExamen) resultadosExamen.innerHTML = '';
-            descripcionInput.value = '';
-            precioInput.value = '';
-            codigoInput.value = 'PROD';
-            unidadInput.value = 'NIU';
-            if (stockHelp) stockHelp.innerHTML = '';
-        } else if (tipoItem === 'examen') {
-            if (examenWrap) examenWrap.style.display = 'block';
-            if (searchTratamiento) searchTratamiento.value = '';
-            if (resultadosTratamiento) resultadosTratamiento.innerHTML = '';
-            if (searchProducto) searchProducto.value = '';
-            if (resultadosProducto) resultadosProducto.innerHTML = '';
-            descripcionInput.value = '';
-            precioInput.value = '';
-            codigoInput.value = 'EXAM';
-            unidadInput.value = 'NIU';
-            if (stockHelp) stockHelp.innerHTML = '';
-        } else {
-            tratamientoWrap.style.display = 'block';
-            if (searchProducto) searchProducto.value = '';
-            if (resultadosProducto) resultadosProducto.innerHTML = '';
-            if (searchExamen) searchExamen.value = '';
-            if (resultadosExamen) resultadosExamen.innerHTML = '';
-            descripcionInput.value = '';
-            precioInput.value = '';
-            codigoInput.value = 'TRAT';
-            unidadInput.value = 'NIU';
-            if (stockHelp) stockHelp.innerHTML = '';
-        }
+        if (stockHelp) stockHelp.innerHTML = '';
+        delete row.dataset.stock;
+        const cantidadInput = row.querySelector('.cantidad-input');
+        if (cantidadInput) cantidadInput.removeAttribute('max');
     }
 
     const tipoItemBadges = {
@@ -1151,6 +931,7 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
         tipo = tipo === 'producto' || tipo === 'examen' ? tipo : 'tratamiento';
         focusRow = focusRow !== false;
         const badge = tipoItemBadges[tipo];
+        const codigoPorTipo = { tratamiento: 'TRAT', producto: 'PROD', examen: 'EXAM' };
         const html = `
             <div class="card card-flush mb-3 item-row border-start border-4" data-index="${itemIndex}" style="border-start-color: #667eea !important;">
                 <div class="card-body">
@@ -1159,7 +940,7 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
                         <div class="col-md-2">
                             <label class="form-label fw-semibold">Tipo</label>
                             <div>
-                                <span class="badge bg-${badge.color} py-2 px-3"><i class="fas ${badge.icon} me-1"></i>${badge.label}</span>
+                                <span class="badge bg-${badge.color} py-2 px-3 tipo-item-badge"><i class="fas ${badge.icon} me-1 tipo-item-badge-icon"></i><span class="tipo-item-badge-label">${badge.label}</span></span>
                             </div>
                             <select name="items[${itemIndex}][tipo_item]" class="form-select form-select-solid tipo-item-select d-none">
                                 <option value="tratamiento" ${tipo === 'tratamiento' ? 'selected' : ''}>Tratamiento</option>
@@ -1168,30 +949,15 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
                             </select>
                         </div>
 
-                        <!-- Búsqueda Tratamiento -->
-                        <div class="col-md-4 tratamiento-wrap">
-                            <label class="form-label fw-semibold">Tratamiento</label>
-                            <input type="text" class="form-control form-control-solid search-tratamiento" placeholder="Buscar tratamiento...">
-                            <div class="list-group resultados-tratamiento mt-2" style="max-height: 200px; overflow-y: auto;"></div>
+                        <!-- Búsqueda unificada: tratamiento, producto o examen -->
+                        <div class="col-md-6 item-search-wrap">
+                            <label class="form-label fw-semibold">Buscar Tratamiento / Producto / Examen</label>
+                            <input type="text" class="form-control form-control-solid search-item" placeholder="Escriba para buscar...">
+                            <div class="list-group resultados-item mt-2" style="max-height: 250px; overflow-y: auto;"></div>
                             <input type="hidden" name="items[${itemIndex}][tratamiento_id]" class="tratamiento-id">
-                            <div class="form-text stock-help mt-1"></div>
-                        </div>
-
-                        <!-- Búsqueda Producto -->
-                        <div class="col-md-4 producto-wrap" style="display: none;">
-                            <label class="form-label fw-semibold">Producto</label>
-                            <input type="text" class="form-control form-control-solid search-producto" placeholder="Buscar producto...">
-                            <div class="list-group resultados-producto mt-2" style="max-height: 200px; overflow-y: auto;"></div>
                             <input type="hidden" name="items[${itemIndex}][producto_id]" class="producto-id">
-                            <div class="form-text stock-help mt-1"></div>
-                        </div>
-
-                        <!-- Búsqueda Examen -->
-                        <div class="col-md-4 examen-wrap" style="display: none;">
-                            <label class="form-label fw-semibold">Examen</label>
-                            <input type="text" class="form-control form-control-solid search-examen" placeholder="Buscar examen...">
-                            <div class="list-group resultados-examen mt-2" style="max-height: 200px; overflow-y: auto;"></div>
                             <input type="hidden" name="items[${itemIndex}][examen_id]" class="examen-id">
+                            <div class="form-text stock-help mt-1"></div>
                         </div>
 
                         <!-- Descripción -->
@@ -1246,7 +1012,7 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
                         <!-- Código Producto -->
                         <div class="col-md-2">
                             <label class="form-label fw-semibold">Código</label>
-                            <input type="text" name="items[${itemIndex}][codigo_producto]" value="TRAT" class="form-control form-control-solid codigo-input" readonly>
+                            <input type="text" name="items[${itemIndex}][codigo_producto]" value="${codigoPorTipo[tipo]}" class="form-control form-control-solid codigo-input" readonly>
                         </div>
 
                         <!-- Unidad -->
@@ -1272,18 +1038,13 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
         itemsContainer.insertAdjacentHTML('beforeend', html);
         const row = itemsContainer.lastElementChild;
 
-    // 🔥 IMPORTANTE: inicializar estado visual
-        toggleItemType(row);
+        setTipoItemBadge(row, tipo);
         itemIndex++;
 
         // Llevar la vista al nuevo item y enfocar su buscador
         if (focusRow) {
             row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            const focusTarget = tipo === 'producto'
-                ? row.querySelector('.search-producto')
-                : tipo === 'examen'
-                    ? row.querySelector('.search-examen')
-                    : row.querySelector('.search-tratamiento');
+            const focusTarget = row.querySelector('.search-item');
             if (focusTarget) setTimeout(() => focusTarget.focus(), 300);
         }
         // attach stock-aware validation to cantidad input
@@ -1313,12 +1074,6 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
         const row = e.target.closest('.item-row');
         if (!row) return;
 
-        if (e.target.classList.contains('tipo-item-select')) {
-            toggleItemType(row);
-            actualizarPago();
-            return;
-        }
-
         if (e.target.classList.contains('descuento-tipo-select')) {
             actualizarPago();
             return;
@@ -1329,58 +1084,91 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
     itemsContainer.addEventListener('input', async function (e) {
 
     // 🔎 BUSCADOR PRODUCTO
-    if (e.target.classList.contains('search-producto')) {
+    if (e.target.classList.contains('search-item')) {
 
-        const query = e.target.value.trim();
+        const rawQuery = e.target.value.trim();
+        const query = rawQuery.toLowerCase();
         const row = e.target.closest('.item-row');
-        const resultsBox = row.querySelector('.resultados-producto');
+        const resultsBox = row.querySelector('.resultados-item');
+        const searchInput = e.target;
 
         if (query.length < 2) {
             resultsBox.innerHTML = '';
             return;
         }
 
-        const res = await fetch(urlBuscarProductos + '?q=' + encodeURIComponent(query));
-        const data = await res.json();
+        const tratamientosMatch = tratamientos
+            .filter(t => t.nombre.toLowerCase().includes(query))
+            .map(t => ({ tipo: 'tratamiento', id: t.id, nombre: t.nombre, precio: t.costo, extra: '' }));
+
+        const examenesMatch = examenes
+            .filter(ex => ex.nombre.toLowerCase().includes(query))
+            .map(ex => ({ tipo: 'examen', id: ex.id, nombre: ex.nombre, precio: ex.precio, extra: ex.categoria || '' }));
+
+        let productosMatch = [];
+        try {
+            const res = await fetch(urlBuscarProductos + '?q=' + encodeURIComponent(rawQuery));
+            const data = await res.json();
+            productosMatch = (data || []).map(p => ({ tipo: 'producto', id: p.id, nombre: p.nombre, precio: p.precio, extra: `Stock: ${p.stock}`, stock: p.stock }));
+        } catch (err) {
+            // si falla la búsqueda de productos, seguimos mostrando tratamientos/exámenes
+        }
+
+        // Si el usuario ya escribió algo distinto mientras esperábamos la respuesta, descartamos
+        if (searchInput.value.trim() !== rawQuery) return;
+
+        const resultados = [...tratamientosMatch, ...productosMatch, ...examenesMatch];
 
         resultsBox.innerHTML = '';
 
-        data.forEach(p => {
+        if (resultados.length === 0) {
+            resultsBox.innerHTML = '<div class="list-group-item text-muted">Sin resultados</div>';
+            return;
+        }
+
+        resultados.forEach(r => {
+            const badge = tipoItemBadges[r.tipo];
             const item = document.createElement('button');
             item.type = "button";
-            item.className = "list-group-item list-group-item-action";
-            item.innerHTML = `${p.nombre} - S/ ${p.precio} <small class="text-muted">(Stock: ${p.stock})</small>`;
+            item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+            item.innerHTML = `
+                <span><span class="badge bg-${badge.color} me-2"><i class="fas ${badge.icon}"></i> ${badge.label}</span>${escapeHtml(r.nombre)} ${r.extra ? `<small class="text-muted">(${escapeHtml(r.extra)})</small>` : ''}</span>
+                <span class="fw-semibold">S/ ${Number(r.precio).toFixed(2)}</span>
+            `;
 
             item.addEventListener('click', () => {
-                row.querySelector('.search-producto').value = p.nombre;
-                row.querySelector('.producto-id').value = p.id;
-                row.querySelector('.descripcion-input').value = p.nombre;
+                limpiarSeleccionItem(row);
+                setTipoItemBadge(row, r.tipo);
 
-                row.querySelector('.precio-input').value = p.precio;
+                searchInput.value = r.nombre;
+                row.querySelector(`.${r.tipo}-id`).value = r.id;
+                row.querySelector('.descripcion-input').value = r.nombre;
+                row.querySelector('.precio-input').value = r.precio;
+                row.querySelector('.codigo-input').value = { tratamiento: 'TRAT', producto: 'PROD', examen: 'EXAM' }[r.tipo];
+                row.querySelector('.unidad-input').value = 'NIU';
 
-                // Mostrar stock junto al producto y configurar límites
-                const stockHelp = row.querySelector('.stock-help');
-                if (stockHelp) stockHelp.innerHTML = `<span class="text-${(p.stock <= 0 ? 'danger' : 'muted')}">Stock: ${p.stock}</span>`;
-                // almacenar stock en el row y aplicar máximo a cantidad
-                row.dataset.stock = Number(p.stock);
-                const cantidadInput = row.querySelector('.cantidad-input');
-                if (cantidadInput) {
-                    // No fijar el atributo HTML "max" por debajo del "min" (0.01):
-                    // con stock 0 el navegador bloquearía CUALQUIER cantidad, incluida 1,
-                    // con el mensaje "el valor mínimo debe ser menor que el máximo".
-                    // La validación de stock insuficiente ya se hace aparte (clase is-invalid + backend).
-                    if (Number(p.stock) >= 0.01) {
-                        cantidadInput.max = Number(p.stock);
-                    } else {
-                        cantidadInput.removeAttribute('max');
-                    }
-                    // marcar invalid si la cantidad actual excede stock
-                    const val = parseFloat(cantidadInput.value || 0);
-                    if (!isNaN(val) && val > Number(p.stock)) {
-                        cantidadInput.classList.add('is-invalid');
-                        if (stockHelp) stockHelp.innerHTML = `<span class="badge bg-danger">Cantidad (${val}) excede stock (${p.stock})</span>`;
-                    } else {
-                        cantidadInput.classList.remove('is-invalid');
+                if (r.tipo === 'producto') {
+                    const stockHelp = row.querySelector('.stock-help');
+                    if (stockHelp) stockHelp.innerHTML = `<span class="text-${(r.stock <= 0 ? 'danger' : 'muted')}">Stock: ${r.stock}</span>`;
+                    row.dataset.stock = Number(r.stock);
+                    const cantidadInput = row.querySelector('.cantidad-input');
+                    if (cantidadInput) {
+                        // No fijar el atributo HTML "max" por debajo del "min" (0.01):
+                        // con stock 0 el navegador bloquearía CUALQUIER cantidad, incluida 1,
+                        // con el mensaje "el valor mínimo debe ser menor que el máximo".
+                        // La validación de stock insuficiente ya se hace aparte (clase is-invalid + backend).
+                        if (Number(r.stock) >= 0.01) {
+                            cantidadInput.max = Number(r.stock);
+                        } else {
+                            cantidadInput.removeAttribute('max');
+                        }
+                        const val = parseFloat(cantidadInput.value || 0);
+                        if (!isNaN(val) && val > Number(r.stock)) {
+                            cantidadInput.classList.add('is-invalid');
+                            if (stockHelp) stockHelp.innerHTML = `<span class="badge bg-danger">Cantidad (${val}) excede stock (${r.stock})</span>`;
+                        } else {
+                            cantidadInput.classList.remove('is-invalid');
+                        }
                     }
                 }
 
@@ -1393,87 +1181,6 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
 
         return;
     }
-     // 🔎 BUSCADOR TRATAMIENTO
-if (e.target.classList.contains('search-tratamiento')) {
-
-    const query = e.target.value.trim().toLowerCase();
-    const row = e.target.closest('.item-row');
-    const resultsBox = row.querySelector('.resultados-tratamiento');
-
-    if (query.length < 2) {
-        resultsBox.innerHTML = '';
-        return;
-    }
-
-    const filtrados = tratamientos.filter(t =>
-        t.nombre.toLowerCase().includes(query)
-    );
-
-    resultsBox.innerHTML = '';
-
-    filtrados.forEach(t => {
-        const item = document.createElement('button');
-        item.type = "button";
-        item.className = "list-group-item list-group-item-action";
-        item.innerHTML = `${t.nombre} - S/ ${t.costo}`;
-
-        item.addEventListener('click', () => {
-            row.querySelector('.search-tratamiento').value = t.nombre;
-            row.querySelector('.tratamiento-id').value = t.id;
-            row.querySelector('.descripcion-input').value = t.nombre;
-            row.querySelector('.precio-input').value = t.costo;
-
-            resultsBox.innerHTML = '';
-            actualizarPago();
-        });
-
-        resultsBox.appendChild(item);
-    });
-
-    return;
-}
-
-     // 🔎 BUSCADOR EXAMEN
-if (e.target.classList.contains('search-examen')) {
-
-    const query = e.target.value.trim().toLowerCase();
-    const row = e.target.closest('.item-row');
-    const resultsBox = row.querySelector('.resultados-examen');
-
-    if (query.length < 2) {
-        resultsBox.innerHTML = '';
-        return;
-    }
-
-    const filtrados = examenes.filter(ex =>
-        ex.nombre.toLowerCase().includes(query)
-    );
-
-    resultsBox.innerHTML = '';
-
-    filtrados.forEach(ex => {
-        const item = document.createElement('button');
-        item.type = "button";
-        item.className = "list-group-item list-group-item-action";
-        item.innerHTML = `${ex.nombre} <small class="text-muted">(${ex.categoria})</small> - S/ ${ex.precio}`;
-
-        item.addEventListener('click', () => {
-            row.querySelector('.search-examen').value = ex.nombre;
-            row.querySelector('.examen-id').value = ex.id;
-            row.querySelector('.descripcion-input').value = ex.nombre;
-            row.querySelector('.precio-input').value = ex.precio;
-
-            resultsBox.innerHTML = '';
-            actualizarPago();
-        });
-
-        resultsBox.appendChild(item);
-    });
-
-    return;
-}
-
-
 
     // 💰 CALCULO NORMAL
     if (
@@ -1497,10 +1204,7 @@ if (e.target.classList.contains('search-examen')) {
     });
 
     btnAddPaymentMethod.addEventListener('click', addPaymentMethod);
-    if (btnAddDistribucion) btnAddDistribucion.addEventListener('click', addDistribucion);
-    btnAddTratamiento.addEventListener('click', () => addItemRow('tratamiento'));
-    btnAddProducto.addEventListener('click', () => addItemRow('producto'));
-    btnAddExamen.addEventListener('click', () => addItemRow('examen'));
+    btnAddItem.addEventListener('click', () => addItemRow('tratamiento'));
     tipoDoc.addEventListener('change', toggleTipoDocumento);
 
     // Validación antes de enviar: actualizar JSON de métodos y permitir POST normal
@@ -1621,32 +1325,11 @@ if (e.target.classList.contains('search-examen')) {
         }
     }
 
-    // Validar distribuciones (laboratorio/materiales) — igual para ambos casos
-    for (const dist of distribuciones) {
-        if (!dist.monto || dist.monto <= 0) {
-            alert('Cada distribución debe tener un monto mayor a 0, o elimínala si no la vas a usar.');
-            e.preventDefault();
-            return false;
-        }
-        if (dist.tipo === 'LABORATORIO' && !dist.laboratorio_id) {
-            alert('Selecciona un laboratorio para cada distribución de tipo Laboratorio.');
-            e.preventDefault();
-            return false;
-        }
-    }
-    const totalDistribuido = distribuciones.reduce((sum, d) => sum + parseFloat(d.monto || 0), 0);
-    if (Math.round(totalDistribuido * 100) / 100 > total) {
-        alert(`La distribución (S/ ${totalDistribuido.toFixed(2)}) no puede superar el total de la factura (S/ ${total.toFixed(2)}).`);
-        e.preventDefault();
-        return false;
-    }
-    distribucionesJson.value = JSON.stringify(distribuciones);
 });
 
     toggleTipoDocumento();
     // NO agregar automáticamente EFECTIVO - dejar que el usuario agregue métodos según necesite
     // addPaymentMethod();
-    renderDistribuciones();
     actualizarPago();
     toggleFormaPago();
 
@@ -1692,8 +1375,8 @@ if (e.target.classList.contains('search-examen')) {
                         tratamientoId.value = it.tratamiento_id;
                         // Mostrar el nombre del tratamiento en el buscador visible
                         const trat = tratamientos.find(t => String(t.id) === String(it.tratamiento_id));
-                        const searchTratamiento = row.querySelector('.search-tratamiento');
-                        if (searchTratamiento) searchTratamiento.value = trat ? trat.nombre : (it.descripcion ?? '');
+                        const searchItemTrat = row.querySelector('.search-item');
+                        if (searchItemTrat) searchItemTrat.value = trat ? trat.nombre : (it.descripcion ?? '');
                     }
 
                     // Item proveniente de un presupuesto: el descuento ya fue pactado ahí,
@@ -1725,9 +1408,9 @@ if (e.target.classList.contains('search-examen')) {
                         // Mostrar stock si conocemos el producto en la lista `productos`
                         const prod = productos.find(p => String(p.id) === String(it.producto_id));
                         const stockHelpEl = row.querySelector('.stock-help');
-                        const searchProducto = row.querySelector('.search-producto');
+                        const searchItemProd = row.querySelector('.search-item');
                         if (prod) {
-                            if (searchProducto) searchProducto.value = prod.nombre;
+                            if (searchItemProd) searchItemProd.value = prod.nombre;
                             // Si viene de presupuesto, el precio ya fue calculado (neto, con
                             // descuento o saldo pendiente): no sobreescribir con el precio de catálogo.
                             if (!it.desde_presupuesto && precio) precio.value = prod.precio ?? precio.value;
@@ -1755,8 +1438,8 @@ if (e.target.classList.contains('search-examen')) {
                         examenId.value = it.examen_id;
                         // Mostrar el nombre del examen en el buscador visible
                         const ex = examenes.find(e => String(e.id) === String(it.examen_id));
-                        const searchExamen = row.querySelector('.search-examen');
-                        if (searchExamen) searchExamen.value = ex ? ex.nombre : (it.descripcion ?? '');
+                        const searchItemExam = row.querySelector('.search-item');
+                        if (searchItemExam) searchItemExam.value = ex ? ex.nombre : (it.descripcion ?? '');
                     }
                 });
                 actualizarPago();

@@ -66,6 +66,11 @@ class ExamenesTable extends Table
             ->greaterThanOrEqual('comision_medico', 0, 'La comisión del médico no puede ser negativa.');
 
         $validator
+            ->decimal('gasto_materiales')
+            ->allowEmptyString('gasto_materiales')
+            ->greaterThanOrEqual('gasto_materiales', 0, 'El gasto en materiales no puede ser negativo.');
+
+        $validator
             ->integer('laboratorio_id')
             ->allowEmptyString('laboratorio_id');
 

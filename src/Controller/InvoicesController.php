@@ -81,8 +81,41 @@ $busquedaDocumento = trim((string) $this->request->getQuery('documento', ''));
 if ($busquedaDocumento !== '') {
     $query->where(['Invoices.cliente_numero LIKE' => '%' . $busquedaDocumento . '%']);
 }
+
+// NUEVO: filtro de comprobantes sin doctor asignado
+if ($this->request->getQuery('sin_doctor') === '1') {
+    $query->where(['Invoices.doctor_id IS' => null]);
+}
+
         $invoices = $this->paginate($query);
-        $this->set(compact('invoices', 'cajaAbierta'));
+
+        $doctores = $this->fetchTable('Doctores')->find('list', [
+            'keyField' => 'id',
+            'valueField' => function ($row) {
+                return trim((string) $row->nombre . ' ' . (string) $row->apellido) . ' - ' . (string) $row->especialidad;
+            },
+            'order' => ['nombre' => 'ASC', 'apellido' => 'ASC'],
+        ])->toArray();
+
+        $this->set(compact('invoices', 'cajaAbierta', 'doctores'));
+    }
+
+    public function asignarDoctor($id = null)
+    {
+        $this->request->allowMethod(['post']);
+
+        $invoice = $this->Invoices->get($id);
+
+        $doctorId = $this->request->getData('doctor_id');
+        $invoice->doctor_id = !empty($doctorId) ? (int) $doctorId : null;
+
+        if ($this->Invoices->save($invoice)) {
+            $this->Flash->success($invoice->doctor_id ? 'Doctor asignado correctamente.' : 'Doctor removido del comprobante.');
+        } else {
+            $this->Flash->error('No se pudo asignar el doctor.');
+        }
+
+        return $this->redirect($this->referer(['action' => 'index'], true));
     }
 
     public function view($id = null)
@@ -230,14 +263,6 @@ if ($busquedaDocumento !== '') {
                 },
                 'order' => ['nombre' => 'ASC', 'apellido' => 'ASC']
             ])->toArray();
-
-            $laboratorios = $this->fetchTable('Laboratorios')->find('list', [
-                'keyField' => 'id',
-                'valueField' => 'nombre',
-            ])
-                ->where(['activo' => 1])
-                ->order(['nombre' => 'ASC'])
-                ->toArray();
 
             $session = $this->request->getSession();
             $oldFormData = $session->read('old_invoice_form') ?? [];
@@ -390,7 +415,6 @@ if ($busquedaDocumento !== '') {
                 'historiasClinicas',
                 'tratamientos',
                 'doctores',
-                'laboratorios',
                 'cajaSeleccionada',
                 'cajasAbiertas',
                 'cajaId',
@@ -453,9 +477,6 @@ if ($busquedaDocumento !== '') {
         // NUEVO: cuotas de crédito (solo se usan si forma_pago === 'CREDITO')
         $cuotasJson = $data['cuotas_json'] ?? '[]';
         $cuotasInput = json_decode($cuotasJson, true) ?? [];
-
-        $distribucionesJson = $data['distribuciones_json'] ?? '[]';
-        $distribuciones = json_decode($distribucionesJson, true) ?? [];
 
         try {
             $companyId = (int) ($data['company_id'] ?? 0);
@@ -603,7 +624,7 @@ if ($busquedaDocumento !== '') {
             //debug($data['items']);
             //die;
 
-            $ok = $conn->transactional(function () use ($invoice, $data, $CajaMovimientos, $cajaAbierta, $paymentMethods, $distribuciones, $formaPago, $cuotasInput,$tipoDoc ) {
+            $ok = $conn->transactional(function () use ($invoice, $data, $CajaMovimientos, $cajaAbierta, $paymentMethods, $formaPago, $cuotasInput,$tipoDoc ) {
                 // AGREGAR ESTE BLOQUE ANTI-DUPLICADOS AL INICIO:
                 if (!empty($invoice->serie) && !empty($invoice->correlativo)) {
                     $existe = $this->Invoices->find()->where([
@@ -636,9 +657,15 @@ if ($busquedaDocumento !== '') {
 
                     // Distribución automática a laboratorio por cada examen facturado
                     // que tenga laboratorio_id asignado: se le debe pagar su
-                    // precio_convenio × cantidad, independiente de lo que el usuario
-                    // cargue manualmente en $distribuciones.
+                    // precio_convenio × cantidad.
                     $distribucionesLabPorExamen = [];
+
+                    // Distribución automática de MATERIALES: por cada tratamiento o
+                    // examen facturado con gasto_materiales configurado, se acumula
+                    // gasto_materiales × cantidad en un único monto de MATERIALES
+                    // para la factura (no depende de laboratorio).
+                    $montoMaterialesAuto = 0.0;
+                    $itemsConMateriales = [];
 
                 foreach ($itemsData as $row) {
                     $cantidad = (float) ($row['cantidad'] ?? 0);
@@ -687,6 +714,10 @@ if ($busquedaDocumento !== '') {
                         $examenId = null;
                             $nombreSunat = (string) $tratamiento->nombre; // ← AGREGAR AQUÍ
 
+                        if ((float) $tratamiento->gasto_materiales > 0) {
+                            $montoMaterialesAuto += round((float) $tratamiento->gasto_materiales * $cantidad, 2);
+                            $itemsConMateriales[] = (string) $tratamiento->nombre;
+                        }
                     }
 
                     if ($tipoItem === 'producto') {
@@ -768,6 +799,11 @@ if ($busquedaDocumento !== '') {
 
                             $distribucionesLabPorExamen[$laboratorioIdExamen]['monto'] += $montoConvenio;
                             $distribucionesLabPorExamen[$laboratorioIdExamen]['examenes'][] = (string) $examen->nombre;
+                        }
+
+                        if ((float) $examen->gasto_materiales > 0) {
+                            $montoMaterialesAuto += round((float) $examen->gasto_materiales * $cantidad, 2);
+                            $itemsConMateriales[] = (string) $examen->nombre;
                         }
                     }
 
@@ -1074,53 +1110,23 @@ if ($busquedaDocumento !== '') {
                     }
                 }
 
-                // Guardar distribución del cobro hacia laboratorio(s) y/o materiales
-                // (cargada manualmente por el usuario, ej. para tratamientos).
-                if (!empty($distribuciones)) {
-                    $totalDistribuido = 0.0;
-                    foreach ($distribuciones as $dist) {
-                        $totalDistribuido += (float) ($dist['monto'] ?? 0);
+                // Generar automáticamente la distribución de MATERIALES por cada
+                // tratamiento/examen facturado que tenga gasto_materiales configurado.
+                if ($montoMaterialesAuto > 0) {
+                    $distribucionMaterialesEntity = $InvoiceDistribuciones->newEntity([
+                        'invoice_id' => $invoice->id,
+                        'tipo' => 'MATERIALES',
+                        'laboratorio_id' => null,
+                        'monto' => round($montoMaterialesAuto, 2),
+                        'descripcion' => 'Materiales por: ' . implode(', ', $itemsConMateriales),
+                    ]);
+
+                    if ($distribucionMaterialesEntity->getErrors()) {
+                        throw new \RuntimeException('Error de validación en distribución automática de materiales: ' . json_encode($distribucionMaterialesEntity->getErrors()));
                     }
 
-                    if (round($totalDistribuido, 2) > $invoiceTotal) {
-                        throw new \RuntimeException(sprintf(
-                            'La distribución (S/ %.2f) no puede superar el total de la factura (S/ %.2f).',
-                            $totalDistribuido,
-                            $invoiceTotal
-                        ));
-                    }
-
-                    foreach ($distribuciones as $dist) {
-                        $tipoDist = trim((string) ($dist['tipo'] ?? ''));
-                        $montoDist = (float) ($dist['monto'] ?? 0);
-
-                        if (!in_array($tipoDist, ['LABORATORIO', 'MATERIALES'], true) || $montoDist <= 0) {
-                            throw new \RuntimeException('Distribución inválida: ' . json_encode($dist));
-                        }
-
-                        $laboratorioIdDist = null;
-                        if ($tipoDist === 'LABORATORIO') {
-                            $laboratorioIdDist = !empty($dist['laboratorio_id']) ? (int) $dist['laboratorio_id'] : null;
-                            if (!$laboratorioIdDist) {
-                                throw new \RuntimeException('Debe seleccionar un laboratorio para cada distribución de tipo Laboratorio.');
-                            }
-                        }
-
-                        $distribucionEntity = $InvoiceDistribuciones->newEntity([
-                            'invoice_id' => $invoice->id,
-                            'tipo' => $tipoDist,
-                            'laboratorio_id' => $laboratorioIdDist,
-                            'monto' => $montoDist,
-                            'descripcion' => trim((string) ($dist['descripcion'] ?? '')) ?: null,
-                        ]);
-
-                        if ($distribucionEntity->getErrors()) {
-                            throw new \RuntimeException('Error de validación en distribución: ' . json_encode($distribucionEntity->getErrors()));
-                        }
-
-                        if (!$InvoiceDistribuciones->save($distribucionEntity)) {
-                            throw new \RuntimeException('No se pudo guardar la distribución del cobro.');
-                        }
+                    if (!$InvoiceDistribuciones->save($distribucionMaterialesEntity)) {
+                        throw new \RuntimeException('No se pudo guardar la distribución automática de materiales.');
                     }
                 }
 

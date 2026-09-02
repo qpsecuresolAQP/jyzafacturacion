@@ -33,6 +33,7 @@ class Tratamiento extends Entity
         'descripcion' => true,
         'costo' => true,
         'monto_fijo_pago' => true,
+        'gasto_materiales' => true,
         'estado' => true,
         'created' => true,
         'modified' => true,

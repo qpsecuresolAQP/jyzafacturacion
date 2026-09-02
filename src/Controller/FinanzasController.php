@@ -216,6 +216,53 @@ class FinanzasController extends AppController
         }
         $totalPagosLaboratorios = round($totalPagosLaboratorios, 2);
 
+        // ── Gasto en materiales, estimado a partir de lo realmente vendido:
+        // cantidad × gasto_materiales del tratamiento/examen de cada item,
+        // en facturas no anuladas dentro del rango. Es informativo (no mueve
+        // caja), por eso no se resta del balance neto. ──
+        $itemsVendidos = $this->fetchTable('InvoiceItems')->find()
+            ->contain(['Tratamientos', 'Examenes'])
+            ->innerJoinWith('Invoices')
+            ->where([
+                'Invoices.estado !=' => 'ANULADO',
+                'DATE(InvoiceItems.created) >=' => $fechaDesde,
+                'DATE(InvoiceItems.created) <=' => $fechaHasta,
+                'InvoiceItems.tipo_item IN' => ['tratamiento', 'examen'],
+            ])
+            ->all();
+
+        $totalGastoMateriales = 0.0;
+        $gastoMaterialesPorItem = [];
+        foreach ($itemsVendidos as $item) {
+            $gastoUnitario = $item->tipo_item === 'tratamiento'
+                ? (float) ($item->tratamiento->gasto_materiales ?? 0)
+                : (float) ($item->examene->gasto_materiales ?? 0);
+
+            if ($gastoUnitario <= 0) {
+                continue;
+            }
+
+            $nombreItem = $item->tipo_item === 'tratamiento'
+                ? ($item->tratamiento->nombre ?? $item->descripcion)
+                : ($item->examene->nombre ?? $item->descripcion);
+
+            $gastoLinea = round($gastoUnitario * (float) $item->cantidad, 2);
+            $totalGastoMateriales += $gastoLinea;
+
+            $clave = $item->tipo_item . '_' . ($item->tratamiento_id ?? $item->examen_id);
+            if (!isset($gastoMaterialesPorItem[$clave])) {
+                $gastoMaterialesPorItem[$clave] = [
+                    'nombre' => $nombreItem,
+                    'tipo' => $item->tipo_item,
+                    'cantidad' => 0.0,
+                    'total' => 0.0,
+                ];
+            }
+            $gastoMaterialesPorItem[$clave]['cantidad'] += (float) $item->cantidad;
+            $gastoMaterialesPorItem[$clave]['total'] += $gastoLinea;
+        }
+        $totalGastoMateriales = round($totalGastoMateriales, 2);
+
         // ── Balance neto: ingresos − egresos − pagos a doctores/laboratorios. ──
         $totalSalidas = round($totalEgresos + $totalPagosDoctores + $totalPagosLaboratorios, 2);
         $balanceNeto = round($totalIngresos - $totalSalidas, 2);
@@ -241,6 +288,9 @@ class FinanzasController extends AppController
             'totalPagosLaboratorios' => $totalPagosLaboratorios,
             'pagosLaboratoriosPorLab' => array_values($pagosLaboratoriosPorLab),
             'pagosLaboratoriosDetalle' => $pagosLaboratoriosDetalle,
+
+            'totalGastoMateriales' => $totalGastoMateriales,
+            'gastoMaterialesPorItem' => array_values($gastoMaterialesPorItem),
 
             'totalSalidas' => $totalSalidas,
             'balanceNeto' => $balanceNeto,

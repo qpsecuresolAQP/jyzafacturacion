@@ -81,6 +81,11 @@ class TratamientosTable extends Table
             ->greaterThanOrEqual('monto_fijo_pago', 0, 'El monto fijo de pago no puede ser negativo.');
 
         $validator
+            ->decimal('gasto_materiales')
+            ->allowEmptyString('gasto_materiales')
+            ->greaterThanOrEqual('gasto_materiales', 0, 'El gasto en materiales no puede ser negativo.');
+
+        $validator
             ->boolean('estado')
             ->notEmptyString('estado');
 

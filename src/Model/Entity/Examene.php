@@ -14,6 +14,7 @@ class Examene extends Entity
         'precio_convenio' => true,
         'laboratorio_id' => true,
         'comision_medico' => true,
+        'gasto_materiales' => true,
         'precio' => true,
         'estado' => true,
         'created' => true,

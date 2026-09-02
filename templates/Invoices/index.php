@@ -62,6 +62,10 @@
         class="btn btn-sm <?= $this->request->getQuery('credito') === '1' ? 'btn-danger' : 'btn-outline-danger' ?>">
             <i class="fas fa-clock"></i> Crédito Pendiente
         </a>
+        <a href="<?= $this->Url->build(['action' => 'index', '?' => ['sin_doctor' => '1']]) ?>"
+        class="btn btn-sm <?= $this->request->getQuery('sin_doctor') === '1' ? 'btn-secondary' : 'btn-outline-secondary' ?>">
+            <i class="fas fa-user-md"></i> Sin Doctor Asignado
+        </a>
     </div>
 
     <!-- BUSCADOR POR CLIENTE -->
@@ -95,6 +99,9 @@
             <?php if ($this->request->getQuery('credito')): ?>
                 <?= $this->Form->hidden('credito', ['value' => $this->request->getQuery('credito')]) ?>
             <?php endif; ?>
+            <?php if ($this->request->getQuery('sin_doctor')): ?>
+                <?= $this->Form->hidden('sin_doctor', ['value' => $this->request->getQuery('sin_doctor')]) ?>
+            <?php endif; ?>
 
             <button type="submit" class="btn btn-primary">
                 <i class="fas fa-search"></i> Buscar
@@ -105,6 +112,7 @@
                 $paramsSinCliente = array_filter([
                     'tipo' => $this->request->getQuery('tipo'),
                     'credito' => $this->request->getQuery('credito'),
+                    'sin_doctor' => $this->request->getQuery('sin_doctor'),
                 ]);
                 ?>
                 <a href="<?= $this->Url->build(['action' => 'index', '?' => $paramsSinCliente]) ?>"
@@ -128,6 +136,7 @@
                     <th>Tipo</th>
                     <th>Cliente</th>
                     <th>Documento</th>
+                    <th>Doctor</th>
                     <th>Total</th>
                     <th>Pago</th>
                     <th>Estado</th>
@@ -190,6 +199,16 @@
                     <td><?= h($inv->cliente_nombre) ?></td>
 
                     <td><?= h($inv->cliente_numero ?: '-') ?></td>
+
+                    <td>
+                        <?php if ($inv->doctor_id && $inv->doctore): ?>
+                            <span class="badge bg-success-subtle text-success border border-success">
+                                <i class="fas fa-user-md"></i> <?= h(trim($inv->doctore->nombre . ' ' . $inv->doctore->apellido)) ?>
+                            </span>
+                        <?php else: ?>
+                            <span class="badge bg-light text-muted border">Sin asignar</span>
+                        <?php endif; ?>
+                    </td>
 
                     <td>
                         <strong>S/ <?= number_format((float)$inv->total, 2) ?></strong>
@@ -270,6 +289,14 @@
                            <i class="fas fa-eye"></i>
                         </a>
 
+                        <button type="button"
+                                class="btn btn-sm <?= $inv->doctor_id ? 'btn-outline-success' : 'btn-outline-secondary' ?>"
+                                title="<?= ($inv->doctor_id && $inv->doctore) ? 'Doctor: ' . h(trim($inv->doctore->nombre . ' ' . $inv->doctore->apellido)) : 'Asignar doctor' ?>"
+                                data-toggle="modal"
+                                data-target="#modalAsignarDoctor<?= $inv->id ?>">
+                           <i class="fas fa-user-md"></i>
+                        </button>
+
                         <?php if ($esCredito && $saldoPendiente > 0): ?>
                             <a href="<?= $this->Url->build(['action' => 'view', $inv->id]) ?>#cuotas"
                                class="btn btn-warning btn-sm"
@@ -309,6 +336,43 @@
                     </td>
 
                 </tr>
+
+                <!-- MODAL: Asignar Doctor -->
+                <div class="modal fade" id="modalAsignarDoctor<?= $inv->id ?>" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <?= $this->Form->create(null, [
+                                'url' => ['action' => 'asignarDoctor', $inv->id],
+                            ]) ?>
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-user-md"></i> Asignar Doctor — Comprobante #<?= $inv->id ?>
+                                </h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <label class="form-label fw-semibold">Doctor Responsable</label>
+                                <select name="doctor_id" class="form-select">
+                                    <option value="">-- Sin doctor asignado --</option>
+                                    <?php foreach ($doctores as $docId => $docLabel): ?>
+                                        <option value="<?= $docId ?>" <?= (int) $inv->doctor_id === (int) $docId ? 'selected' : '' ?>>
+                                            <?= h($docLabel) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-info">
+                                    <i class="fas fa-save"></i> Guardar
+                                </button>
+                            </div>
+                            <?= $this->Form->end() ?>
+                        </div>
+                    </div>
+                </div>
                 <?php endforeach; ?>
             </tbody>
 

@@ -20,6 +20,8 @@
  * @var float $totalPagosLaboratorios
  * @var array $pagosLaboratoriosPorLab
  * @var array $pagosLaboratoriosDetalle
+ * @var float $totalGastoMateriales
+ * @var array $gastoMaterialesPorItem
  * @var float $totalSalidas
  * @var float $balanceNeto
  */
@@ -136,7 +138,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-3">
             <div class="card border-secondary">
                 <div class="card-body text-center">
                     <h6 class="text-muted">
@@ -145,6 +147,18 @@
                     </h6>
                     <h4 class="text-secondary mb-0">S/ <?= number_format($totalReembolsosAnulacion, 2) ?></h4>
                     <small class="text-muted">Informativo, no afecta el balance</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">
+                        Gasto en materiales
+                        <i class="fas fa-info-circle" title="Estimado según lo vendido: cantidad de cada tratamiento/examen facturado × su gasto de materiales configurado. Informativo, no afecta el balance neto."></i>
+                    </h6>
+                    <h4 class="text-warning mb-0">S/ <?= number_format($totalGastoMateriales, 2) ?></h4>
+                    <small class="text-muted">Estimado según ventas, no afecta el balance</small>
                 </div>
             </div>
         </div>
@@ -163,6 +177,9 @@
         </li>
         <li class="nav-item">
             <a class="nav-link" data-toggle="tab" href="#laboratorios">Pagos a Laboratorios</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#materiales">Gasto en Materiales</a>
         </li>
     </ul>
 
@@ -466,6 +483,57 @@
                                 <tr><td colspan="5" class="text-center text-muted py-3">Sin pagos a laboratorios en el periodo.</td></tr>
                             <?php endif; ?>
                         </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════ GASTO EN MATERIALES ══════════════ -->
+        <div id="materiales" class="tab-pane fade">
+            <div class="alert alert-warning">
+                <i class="fas fa-info-circle"></i>
+                Estimado según lo vendido en el periodo: por cada tratamiento o examen facturado (no anulado),
+                se multiplica su cantidad por el gasto de materiales configurado en su ficha. Es informativo
+                para calcular utilidad real; no mueve caja ni afecta el balance neto.
+            </div>
+            <div class="card">
+                <div class="card-header"><strong>Por tratamiento / examen</strong></div>
+                <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead class="bg-dark text-white">
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Nombre</th>
+                                <th>Cantidad vendida</th>
+                                <th>Gasto materiales</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($gastoMaterialesPorItem)): ?>
+                                <?php foreach ($gastoMaterialesPorItem as $g): ?>
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-<?= $g['tipo'] === 'tratamiento' ? 'info text-dark' : 'primary' ?>">
+                                                <?= h(ucfirst($g['tipo'])) ?>
+                                            </span>
+                                        </td>
+                                        <td><?= h($g['nombre']) ?></td>
+                                        <td><?= number_format($g['cantidad'], 2) ?></td>
+                                        <td>S/ <?= number_format($g['total'], 2) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr><td colspan="4" class="text-center text-muted py-3">Sin gasto de materiales registrado en el periodo.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                        <?php if (!empty($gastoMaterialesPorItem)): ?>
+                            <tfoot>
+                                <tr class="fw-bold">
+                                    <td colspan="3" class="text-end">Total</td>
+                                    <td>S/ <?= number_format($totalGastoMateriales, 2) ?></td>
+                                </tr>
+                            </tfoot>
+                        <?php endif; ?>
                     </table>
                 </div>
             </div>

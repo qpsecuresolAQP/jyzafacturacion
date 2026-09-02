@@ -71,6 +71,22 @@
                     </small>
                 </div>
 
+                <!-- Gasto en materiales -->
+                <div class="col-md-6 mb-3">
+                    <?= $this->Form->control('gasto_materiales', [
+                        'label'       => 'Gasto en Materiales (S/)',
+                        'class'       => 'form-control',
+                        'placeholder' => 'Ej: 15.00',
+                        'type'        => 'number',
+                        'step'        => '0.01',
+                        'min'         => '0',
+                    ]) ?>
+                    <small class="text-muted">
+                        Costo estimado de los materiales usados en este tratamiento. Se descuenta del costo
+                        para calcular la utilidad real (costo − pago doctor − materiales).
+                    </small>
+                </div>
+
                 <!-- Botones -->
                 <div class="col-12 text-center">
                     <?= $this->Form->button(__('Guardar Tratamiento'), ['class' => 'btn btn-info', 'id' => 'btnGuardar']) ?>

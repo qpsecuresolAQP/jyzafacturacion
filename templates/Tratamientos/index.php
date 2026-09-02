@@ -52,6 +52,8 @@
                         <th><?= $this->Paginator->sort('nombre', 'Nombre') ?></th>
                         <th><?= $this->Paginator->sort('costo', 'Costo') ?></th>
                         <th><?= $this->Paginator->sort('monto_fijo_pago', 'Pago Fijo Doctor') ?></th>
+                        <th><?= $this->Paginator->sort('gasto_materiales', 'Gasto Materiales') ?></th>
+                        <th>Utilidad Est.</th>
                         <th><?= $this->Paginator->sort('estado', 'Estado') ?></th>
                         <th><?= $this->Paginator->sort('created', 'Creado') ?></th>
                         <th><?= $this->Paginator->sort('modified', 'Modificado') ?></th>
@@ -70,6 +72,21 @@
                             <?php else: ?>
                                 <span class="text-muted">-</span>
                             <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($tratamiento->gasto_materiales > 0): ?>
+                                S/ <?= h($tratamiento->gasto_materiales) ?>
+                            <?php else: ?>
+                                <span class="text-muted">-</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php
+                            $utilidadEst = (float)$tratamiento->costo - (float)$tratamiento->monto_fijo_pago - (float)$tratamiento->gasto_materiales;
+                            ?>
+                            <span class="fw-bold <?= $utilidadEst >= 0 ? 'text-success' : 'text-danger' ?>">
+                                S/ <?= number_format($utilidadEst, 2) ?>
+                            </span>
                         </td>
                         <td>
                             <span class="badge bg-<?= $tratamiento->estado ? 'success' : 'secondary' ?>">
