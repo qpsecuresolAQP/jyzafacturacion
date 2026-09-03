@@ -46,7 +46,7 @@
                                 <?= $this->Html->link(
                                     '<i class="fas fa-eye"></i>',
                                     ['action' => 'view', $categoria->id],
-                                    ['escape' => false, 'title' => 'Ver', 'class' => 'btn btn-info btn-sm openModal']
+                                    ['escape' => false, 'title' => 'Ver', 'class' => 'btn btn-info btn-sm']
                                 ) ?>
                             <?php endif; ?>
 

@@ -83,6 +83,7 @@ return [
         'Presupuestos' => [],
         'Procedimientos' => [],
         'Productos' => [],
+        'ProductoMovimientos' => [],
         'Recetas' => [],
         'Roles' => [],
         'Tratamientos' => [],

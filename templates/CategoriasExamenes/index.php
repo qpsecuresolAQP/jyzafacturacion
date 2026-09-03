@@ -3,6 +3,7 @@
  * @var \App\View\AppView $this
  * @var iterable<\App\Model\Entity\CategoriasExamene> $categoriasExamenes
  * @var string $estadoFiltro
+ * @var string $searchTerm
  */
 ?>
 <?php $this->assign('title', 'Categorías de Exámenes'); ?>
@@ -10,16 +11,30 @@
 <div class="categorias-examenes index content">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="btn-group" role="group">
-            <?= $this->Html->link('Activos', ['action' => 'index', '?' => ['estado' => 'activos']], [
+            <?= $this->Html->link('Activos', ['action' => 'index', '?' => ['estado' => 'activos', 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($estadoFiltro === 'activos' ? 'btn-info' : 'btn-outline-info'),
             ]) ?>
-            <?= $this->Html->link('Inactivos', ['action' => 'index', '?' => ['estado' => 'inactivos']], [
+            <?= $this->Html->link('Inactivos', ['action' => 'index', '?' => ['estado' => 'inactivos', 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($estadoFiltro === 'inactivos' ? 'btn-info' : 'btn-outline-info'),
             ]) ?>
-            <?= $this->Html->link('Todos', ['action' => 'index', '?' => ['estado' => 'todos']], [
+            <?= $this->Html->link('Todos', ['action' => 'index', '?' => ['estado' => 'todos', 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($estadoFiltro === 'todos' ? 'btn-info' : 'btn-outline-info'),
             ]) ?>
         </div>
+
+        <?= $this->Form->create(null, ['type' => 'get', 'class' => 'd-flex gap-2']) ?>
+            <?= $this->Form->hidden('estado', ['value' => $estadoFiltro]) ?>
+            <?= $this->Form->control('search', [
+                'label' => false,
+                'value' => $searchTerm,
+                'placeholder' => 'Buscar por nombre...',
+                'class' => 'form-control form-control-sm',
+            ]) ?>
+            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-search"></i></button>
+            <?php if ($searchTerm !== ''): ?>
+                <?= $this->Html->link('<i class="fas fa-times"></i>', ['action' => 'index', '?' => ['estado' => $estadoFiltro]], ['escape' => false, 'class' => 'btn btn-sm btn-outline-secondary', 'title' => 'Limpiar búsqueda']) ?>
+            <?php endif; ?>
+        <?= $this->Form->end() ?>
 
         <?= $this->Html->link(__('Añadir Categoría'), ['action' => 'add'], ['class' => 'btn btn-info openModal']) ?>
     </div>
@@ -48,7 +63,7 @@
                             <?= $this->Html->link(
                                 '<i class="fas fa-eye"></i>',
                                 ['action' => 'view', $categoria->id],
-                                ['escape' => false, 'title' => 'Ver', 'class' => 'btn btn-info btn-sm openModal']
+                                ['escape' => false, 'title' => 'Ver', 'class' => 'btn btn-info btn-sm ']
                             ) ?>
                             <?= $this->Html->link(
                                 '<i class="fas fa-edit"></i>',

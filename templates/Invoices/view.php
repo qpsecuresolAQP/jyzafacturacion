@@ -411,17 +411,18 @@ document.addEventListener('DOMContentLoaded', function () {
     <!-- ACCIONES -->
     <div class="d-flex flex-wrap gap-2 justify-content-center">
 
-        <?php if ($invoice->tipo_doc === '01' && $invoice->estado === 'RECIBO_INTERNO'): ?>
-            <a href="<?= $this->Url->build(['action' => 'emitir', $invoice->id]) ?>"
-               class="btn btn-success btn-sm">
-                <i class="fas fa-rocket"></i> Emitir Factura a SUNAT
+        <?php if ($invoice->tipo_doc === 'RI' && $invoice->estado === 'RECIBO_INTERNO'): ?>
+            <a href="<?= $this->Url->build(['action' => 'transformarABoleta', $invoice->id]) ?>"
+               class="btn btn-warning btn-sm openModal">
+                <i class="fas fa-exchange-alt"></i> Convertir a Boleta
             </a>
         <?php endif; ?>
 
-        <?php if ($invoice->tipo_doc === '03' && $invoice->estado === 'RECIBO_INTERNO'): ?>
-            <a href="<?= $this->Url->build(['action' => 'emitir', $invoice->id]) ?>"
-               class="btn btn-warning btn-sm">
-                <i class="fas fa-file-invoice"></i> Marcar para Resumen Diario
+        <?php if ($invoice->tipo_doc === '03' && $invoice->estado === 'PENDIENTE_RESUMEN'): ?>
+            <a href="<?= $this->Url->build(['action' => 'anularBoletaPendiente', $invoice->id]) ?>"
+               class="btn btn-danger btn-sm"
+               onclick="return confirm('¿Anular esta boleta antes de enviarla a SUNAT?\n\nTodavía no fue enviada al Resumen Diario, así que no requiere Resumen de Anulación.\nSe registrará el reembolso en Caja.')">
+                <i class="fas fa-trash"></i> Anular (aún no enviada a SUNAT)
             </a>
         <?php endif; ?>
 

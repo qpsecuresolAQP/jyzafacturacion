@@ -57,15 +57,28 @@ class ProductosController extends AppController
     {
         $producto = $this->Productos->newEmptyEntity();
 
+        $categoriaProductoId = $this->request->getQuery('categoria_producto_id');
+
         if ($this->request->is('post')) {
             $producto = $this->Productos->patchEntity($producto, $this->request->getData());
 
             if ($this->Productos->save($producto)) {
                 $this->Flash->success('El producto fue guardado correctamente.');
+
+                if (!empty($producto->categoria_producto_id)) {
+                    return $this->redirect([
+                        'controller' => 'CategoriasProductos',
+                        'action' => 'view',
+                        $producto->categoria_producto_id,
+                    ]);
+                }
+
                 return $this->redirect(['action' => 'index']);
             }
 
             $this->Flash->error('No se pudo guardar el producto.');
+        } elseif ($categoriaProductoId) {
+            $producto->categoria_producto_id = (int)$categoriaProductoId;
         }
 
         $categorias = $this->Productos->CategoriasProductos
@@ -98,6 +111,15 @@ class ProductosController extends AppController
 
             if ($this->Productos->save($producto)) {
                 $this->Flash->success('El producto fue actualizado correctamente.');
+
+                if (!empty($producto->categoria_producto_id)) {
+                    return $this->redirect([
+                        'controller' => 'CategoriasProductos',
+                        'action' => 'view',
+                        $producto->categoria_producto_id,
+                    ]);
+                }
+
                 return $this->redirect(['action' => 'index']);
             }
 

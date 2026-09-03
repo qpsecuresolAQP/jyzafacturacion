@@ -22,6 +22,7 @@ class CategoriasExamenesController extends AppController
     public function index()
     {
         $estadoFiltro = $this->request->getQuery('estado', 'activos');
+        $searchTerm = trim((string) $this->request->getQuery('search', ''));
 
         $query = $this->CategoriasExamenes->find()->order(['nombre' => 'ASC']);
 
@@ -32,9 +33,15 @@ class CategoriasExamenesController extends AppController
         }
         // 'todos' no aplica filtro
 
+        if ($searchTerm !== '') {
+            $query->where([
+                'LOWER(CategoriasExamenes.nombre) LIKE' => '%' . strtolower($searchTerm) . '%',
+            ]);
+        }
+
         $categoriasExamenes = $this->paginate($query);
 
-        $this->set(compact('categoriasExamenes', 'estadoFiltro'));
+        $this->set(compact('categoriasExamenes', 'estadoFiltro', 'searchTerm'));
     }
 
     public function view($id = null)

@@ -3059,10 +3059,22 @@ public function comprobanteCuota($cuotaId)
         ->order(['created' => 'DESC'])
         ->all();
 
+    // Boletas que aún no se enviaron a SUNAT (esperando el Resumen Diario
+    // nocturno). No se limitan a 24h: pueden llevar esperando más tiempo y
+    // siguen siendo igual de anulables localmente mientras no se envíen.
+    $boletasPendientes = $this->Invoices->find()
+        ->where([
+            'tipo_doc' => '03',
+            'estado' => 'PENDIENTE_RESUMEN',
+        ])
+        ->order(['created' => 'DESC'])
+        ->all();
+
     $this->set(compact(
         'facturas',
         'boletas',
-        'recibos'
+        'recibos',
+        'boletasPendientes'
     ));
 }
 private function obtenerSiguienteCorrelativoBaja(int $companyId, string $fecha): int
@@ -3082,6 +3094,81 @@ private function obtenerSiguienteCorrelativoBaja(int $companyId, string $fecha):
 
     return $last ? ((int) $last->correlativo + 1) : 1;
 }
+
+/**
+ * Convierte un Recibo Interno (RI) en Boleta, sin anular ni recrear la
+ * venta: caja y stock ya quedaron correctos cuando se cobró el RI, así que
+ * solo se reasignan tipo_doc/serie/correlativo/estado y el registro sigue
+ * el flujo normal de boletas (Resumen Diario vía "emitir").
+ */
+public function transformarABoleta($id)
+{
+    $invoice = $this->Invoices->get($id);
+
+    if ($invoice->tipo_doc !== 'RI' || $invoice->estado !== 'RECIBO_INTERNO') {
+        $this->Flash->error('Solo se pueden transformar Recibos Internos activos.');
+        return $this->redirect(['action' => 'view', $id]);
+    }
+
+    $tieneDatosCliente = preg_match('/^\d{8}$/', (string)$invoice->cliente_numero)
+        || preg_match('/^[A-Za-z0-9]{9,12}$/', (string)$invoice->cliente_numero);
+
+    if ($this->request->is(['post', 'put', 'patch'])) {
+        $data = $this->request->getData();
+
+        $clienteTipoDoc = trim((string)($data['boleta_tipo_doc'] ?? $invoice->cliente_tipo_doc ?? '1'));
+        if (!in_array($clienteTipoDoc, ['1', '4'], true)) {
+            $clienteTipoDoc = '1';
+        }
+
+        $clienteNumero = trim((string)($data['boleta_dni'] ?? $invoice->cliente_numero ?? ''));
+        $clienteNombre = trim((string)($data['boleta_nombre'] ?? $invoice->cliente_nombre ?? ''));
+
+        if ($clienteTipoDoc === '1' && !preg_match('/^\d{8}$/', $clienteNumero)) {
+            $this->Flash->error('Se requiere un DNI válido de 8 dígitos.');
+            return $this->redirect(['action' => 'transformarABoleta', $id]);
+        }
+
+        if ($clienteTipoDoc === '4' && !preg_match('/^[A-Za-z0-9]{9,12}$/', $clienteNumero)) {
+            $this->Flash->error('El carnet de extranjería debe tener entre 9 y 12 caracteres alfanuméricos.');
+            return $this->redirect(['action' => 'transformarABoleta', $id]);
+        }
+
+        if ($clienteNombre === '') {
+            $this->Flash->error('Se requiere el nombre del cliente.');
+            return $this->redirect(['action' => 'transformarABoleta', $id]);
+        }
+
+        $serie = 'B001';
+        $correlativo = $this->obtenerSiguienteCorrelativo((int)$invoice->company_id, $serie);
+
+        $invoice = $this->Invoices->patchEntity($invoice, [
+            'tipo_doc' => '03',
+            'serie' => $serie,
+            'correlativo' => $correlativo,
+            'cliente_tipo_doc' => $clienteTipoDoc,
+            'cliente_numero' => $clienteNumero,
+            'cliente_nombre' => $clienteNombre,
+            'estado' => 'PENDIENTE_SUNAT',
+        ]);
+
+        if (!$this->Invoices->save($invoice)) {
+            $this->Flash->error('No se pudo transformar el Recibo Interno en Boleta.');
+            return $this->redirect(['action' => 'view', $id]);
+        }
+
+        $this->Flash->success('Recibo Interno convertido a Boleta ' . $serie . '-' . $correlativo . '. Enviando al Resumen Diario...');
+        return $this->redirect(['action' => 'emitir', $invoice->id]);
+    }
+
+    $this->set(compact('invoice', 'tieneDatosCliente'));
+    if ($this->request->is('ajax')) {
+        $this->viewBuilder()->setLayout('ajax');
+    } else {
+        $this->viewBuilder()->setLayout('default');
+    }
+}
+
 public function anularReciboInterno($id)
 {
     $this->request->allowMethod(['post', 'get']);
@@ -3109,6 +3196,45 @@ public function anularReciboInterno($id)
     $this->registrarEgresoAnulacion($invoice, 'REEMBOLSO ANULACIÓN RI');
     $this->devolverStockAnulacion($invoice);
     $this->Flash->success('Recibo Interno #' . $invoice->correlativo . ' anulado y reembolso registrado en caja.');
+    return $this->redirect(['action' => 'index']);
+}
+
+/**
+ * Anula localmente una boleta que todavía NO fue enviada a SUNAT (sigue
+ * PENDIENTE_RESUMEN). Como SUNAT nunca se enteró de que este comprobante
+ * existe, no aplica ni Comunicación de Baja ni Resumen de Anulación: solo
+ * se marca como anulada aquí (queda excluida del armado del resumen diario
+ * porque ese query filtra por estado = 'PENDIENTE_RESUMEN' exacto), se
+ * reembolsa la caja y se devuelve el stock. La serie/correlativo emitidos
+ * quedan quemados y no se reutilizan, como exige SUNAT.
+ */
+public function anularBoletaPendiente($id)
+{
+    $this->request->allowMethod(['post', 'get']);
+
+    $invoice = $this->Invoices->get($id);
+
+    if ($invoice->tipo_doc !== '03') {
+        $this->Flash->error('Solo se pueden anular boletas aquí.');
+        return $this->redirect(['action' => 'view', $id]);
+    }
+
+    if ($invoice->estado !== 'PENDIENTE_RESUMEN') {
+        $this->Flash->error('Esta boleta ya fue enviada a SUNAT (o ya está anulada). Usa el Centro de Anulaciones para boletas aceptadas.');
+        return $this->redirect(['action' => 'view', $id]);
+    }
+
+    $invoice->estado = 'ANULADO';
+    $invoice->descripcion_sunat = 'ANULADO ANTES DE ENVIAR A SUNAT';
+
+    if (!$this->Invoices->save($invoice)) {
+        $this->Flash->error('No se pudo anular la boleta.');
+        return $this->redirect(['action' => 'view', $id]);
+    }
+
+    $this->registrarEgresoAnulacion($invoice, 'REEMBOLSO ANULACIÓN BOLETA (no enviada)');
+    $this->devolverStockAnulacion($invoice);
+    $this->Flash->success('Boleta ' . $invoice->serie . '-' . $invoice->correlativo . ' anulada antes de ser enviada a SUNAT. Reembolso registrado en caja.');
     return $this->redirect(['action' => 'index']);
 }
 

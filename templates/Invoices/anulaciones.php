@@ -193,6 +193,95 @@
         </div>
 
     </div>
+    <!-- BOLETAS PENDIENTES (aún no enviadas a SUNAT) -->
+    <div class="card shadow-sm border-0 mt-4">
+
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="fas fa-clock"></i>
+                Boletas pendientes de envío (aún no enviadas a SUNAT)
+            </h5>
+        </div>
+
+        <div class="card-body">
+
+            <div class="alert alert-info">
+                Estas boletas todavía no fueron incluidas en un Resumen Diario, así que SUNAT no sabe que existen.
+                Se pueden anular directamente aquí, sin Resumen de Anulación.
+            </div>
+
+            <?php if ($boletasPendientes->count()): ?>
+
+                <div class="row">
+
+                    <?php foreach ($boletasPendientes as $bp): ?>
+
+                    <div class="col-md-6 mb-3">
+
+                        <div class="border rounded p-3 h-100 bg-light">
+
+                            <div class="d-flex justify-content-between">
+                                <strong>
+                                    <?= h($bp->serie . '-' . $bp->correlativo) ?>
+                                </strong>
+
+                                <span class="badge bg-warning text-dark">
+                                    PENDIENTE DE ENVÍO
+                                </span>
+                            </div>
+
+                            <hr>
+
+                            <div>
+                                <strong>Cliente:</strong><br>
+                                <?= h($bp->cliente_nombre) ?>
+                            </div>
+
+                            <div class="mt-2">
+                                <strong>Total:</strong>
+                                S/ <?= number_format($bp->total, 2) ?>
+                            </div>
+
+                            <div class="mt-2 text-muted small">
+                                <?= $bp->created->format('d/m/Y H:i') ?>
+                            </div>
+
+                            <div class="mt-3">
+
+                                <a href="<?= $this->Url->build([
+                                    'action' => 'anularBoletaPendiente',
+                                    $bp->id
+                                ]) ?>"
+                                   class="btn btn-danger w-100"
+                                   onclick="return confirm('¿Anular esta boleta antes de enviarla a SUNAT?\n\nSe registrará automáticamente el reembolso en Caja.')">
+
+                                    <i class="fas fa-trash"></i>
+                                    Anular (aún no enviada)
+
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+            <?php else: ?>
+
+                <div class="alert alert-secondary mb-0">
+                    No hay boletas pendientes de envío.
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
     <!-- RECIBOS INTERNOS -->
     <div class="card shadow-sm border-0 mt-4">
 

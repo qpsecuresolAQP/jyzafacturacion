@@ -31,6 +31,10 @@ class ProductosTable extends Table
         $this->hasMany('InvoiceItems', [
             'foreignKey' => 'producto_id',
         ]);
+
+        $this->hasMany('ProductoMovimientos', [
+            'foreignKey' => 'producto_id',
+        ]);
     }
 
     public function validationDefault(Validator $validator): Validator

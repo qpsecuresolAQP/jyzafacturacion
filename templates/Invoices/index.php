@@ -326,9 +326,21 @@
                         </a>
 
                         <?php if ($inv->tipo_doc === 'RI' && $inv->estado === 'RECIBO_INTERNO'): ?>
+                            <a href="<?= $this->Url->build(['action' => 'transformarABoleta', $inv->id]) ?>"
+                            class="btn btn-warning btn-sm openModal" title="Convertir a Boleta">
+                                <i class="fas fa-exchange-alt"></i>
+                            </a>
                             <a href="<?= $this->Url->build(['action' => 'anularReciboInterno', $inv->id]) ?>"
                             class="btn btn-danger btn-sm"
                             onclick="return confirm('¿Anular Recibo Interno #<?= $inv->correlativo ?>?\n\n⚠️ Recuerda registrar el EGRESO en Caja.')">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        <?php endif; ?>
+
+                        <?php if ($inv->tipo_doc === '03' && $inv->estado === 'PENDIENTE_RESUMEN'): ?>
+                            <a href="<?= $this->Url->build(['action' => 'anularBoletaPendiente', $inv->id]) ?>"
+                            class="btn btn-danger btn-sm" title="Anular (aún no enviada a SUNAT)"
+                            onclick="return confirm('¿Anular esta boleta antes de enviarla a SUNAT?\n\nTodavía no fue enviada al Resumen Diario.\nSe registrará el reembolso en Caja.')">
                                 <i class="fas fa-trash"></i>
                             </a>
                         <?php endif; ?>

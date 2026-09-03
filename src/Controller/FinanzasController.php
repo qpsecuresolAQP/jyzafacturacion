@@ -233,6 +233,7 @@ class FinanzasController extends AppController
 
         $totalGastoMateriales = 0.0;
         $gastoMaterialesPorItem = [];
+        $gastoMaterialesDetalle = [];
         foreach ($itemsVendidos as $item) {
             $gastoUnitario = $item->tipo_item === 'tratamiento'
                 ? (float) ($item->tratamiento->gasto_materiales ?? 0)
@@ -260,12 +261,32 @@ class FinanzasController extends AppController
             }
             $gastoMaterialesPorItem[$clave]['cantidad'] += (float) $item->cantidad;
             $gastoMaterialesPorItem[$clave]['total'] += $gastoLinea;
+
+            $gastoMaterialesDetalle[] = [
+                'fecha' => $item->created,
+                'monto' => $gastoLinea,
+            ];
         }
         $totalGastoMateriales = round($totalGastoMateriales, 2);
 
         // ── Balance neto: ingresos − egresos − pagos a doctores/laboratorios. ──
         $totalSalidas = round($totalEgresos + $totalPagosDoctores + $totalPagosLaboratorios, 2);
         $balanceNeto = round($totalIngresos - $totalSalidas, 2);
+
+        // ── Serie diaria para el histograma: un total por día y categoría,
+        // reutilizando el detalle ya calculado arriba (sin volver a consultar
+        // la BD). Los días sin ningún movimiento igual aparecen en 0, para que
+        // el eje X del gráfico no salte fechas. ──
+        $serieDiaria = $this->buildSerieDiaria(
+            $fechaDesde,
+            $fechaHasta,
+            $movimientosDetalle,
+            $ingresosManualesDetalle,
+            $egresosDetalle,
+            $pagosDoctoresDetalle,
+            $pagosLaboratoriosDetalle,
+            $gastoMaterialesDetalle
+        );
 
         return [
             'totalIngresosVentas' => round($totalIngresosVentas, 2),
@@ -294,6 +315,82 @@ class FinanzasController extends AppController
 
             'totalSalidas' => $totalSalidas,
             'balanceNeto' => $balanceNeto,
+
+            'serieDiaria' => $serieDiaria,
         ];
+    }
+
+    /**
+     * Agrupa por día (Y-m-d) los cinco totales del histograma: ingresos
+     * (ventas + manuales), egresos, pagos a doctores, pagos a laboratorios y
+     * gasto en materiales. Incluye todos los días del rango aunque no tengan
+     * movimientos, para que el eje X del gráfico sea continuo.
+     */
+    private function buildSerieDiaria(
+        string $fechaDesde,
+        string $fechaHasta,
+        array $movimientosDetalle,
+        array $ingresosManualesDetalle,
+        array $egresosDetalle,
+        array $pagosDoctoresDetalle,
+        array $pagosLaboratoriosDetalle,
+        array $gastoMaterialesDetalle
+    ): array {
+        $dias = [];
+        $cursor = new \DateTime($fechaDesde);
+        $fin = new \DateTime($fechaHasta);
+        while ($cursor <= $fin) {
+            $clave = $cursor->format('Y-m-d');
+            $dias[$clave] = [
+                'fecha' => $clave,
+                'ingresos' => 0.0,
+                'egresos' => 0.0,
+                'pagosDoctores' => 0.0,
+                'pagosLaboratorios' => 0.0,
+                'gastoMateriales' => 0.0,
+            ];
+            $cursor->modify('+1 day');
+        }
+
+        $sumar = function (array &$dias, array $detalle, string $campo) {
+            foreach ($detalle as $fila) {
+                $fecha = $fila['fecha'] ?? null;
+                if (!$fecha) {
+                    continue;
+                }
+                $clave = $fecha->format('Y-m-d');
+                if (!isset($dias[$clave])) {
+                    continue;
+                }
+                $dias[$clave][$campo] += (float) $fila['monto'];
+            }
+        };
+
+        $sumar($dias, $movimientosDetalle, 'ingresos');
+        $sumar($dias, $ingresosManualesDetalle, 'ingresos');
+        $sumar($dias, $egresosDetalle, 'egresos');
+
+        foreach ($pagosDoctoresDetalle as $fila) {
+            $clave = $fila['fecha']?->format('Y-m-d');
+            if ($clave && isset($dias[$clave])) {
+                $dias[$clave]['pagosDoctores'] += (float) $fila['monto'];
+            }
+        }
+
+        foreach ($pagosLaboratoriosDetalle as $fila) {
+            $clave = $fila['fecha']?->format('Y-m-d');
+            if ($clave && isset($dias[$clave])) {
+                $dias[$clave]['pagosLaboratorios'] += (float) $fila['monto'];
+            }
+        }
+
+        foreach ($gastoMaterialesDetalle as $fila) {
+            $clave = $fila['fecha']?->format('Y-m-d');
+            if ($clave && isset($dias[$clave])) {
+                $dias[$clave]['gastoMateriales'] += (float) $fila['monto'];
+            }
+        }
+
+        return array_values($dias);
     }
 }

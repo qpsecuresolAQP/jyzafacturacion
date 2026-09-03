@@ -24,6 +24,7 @@
  * @var array $gastoMaterialesPorItem
  * @var float $totalSalidas
  * @var float $balanceNeto
+ * @var array $serieDiaria
  */
 ?>
 <div class="container-fluid py-4">
@@ -161,6 +162,29 @@
                     <small class="text-muted">Estimado según ventas, no afecta el balance</small>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         HISTOGRAMA: ingresos / egresos / pagos por día
+    ══════════════════════════════════════════ -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <strong>Movimientos por día</strong>
+            <?php if (count($serieDiaria) > 62): ?>
+                <span class="text-muted small">
+                    <i class="fas fa-info-circle"></i> Rango amplio (<?= count($serieDiaria) ?> días) — acota las fechas para un detalle más legible.
+                </span>
+            <?php endif; ?>
+        </div>
+        <div class="card-body">
+            <?php if (empty($serieDiaria)): ?>
+                <p class="text-center text-muted mb-0 py-4">Sin datos en el periodo seleccionado.</p>
+            <?php else: ?>
+                <div style="position: relative; height: 340px;">
+                    <canvas id="finanzasHistograma"></canvas>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -540,3 +564,93 @@
         </div>
     </div>
 </div>
+
+<?php if (!empty($serieDiaria)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var serie = <?= json_encode($serieDiaria, JSON_NUMERIC_CHECK) ?>;
+
+    // Paleta categórica validada (dataviz), primeros 5 slots en orden fijo.
+    var COLOR_INGRESOS = '#2a78d6';   // slot 1 blue
+    var COLOR_EGRESOS = '#eb6834';    // slot 2 orange
+    var COLOR_DOCTORES = '#1baf7a';   // slot 3 aqua
+    var COLOR_LABS = '#eda100';       // slot 4 yellow
+    var COLOR_MATERIALES = '#e87ba4'; // slot 5 magenta
+
+    var labels = serie.map(function (d) {
+        var partes = d.fecha.split('-');
+        return partes[2] + '/' + partes[1];
+    });
+
+    var ctx = document.getElementById('finanzasHistograma').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Ingresos',
+                    data: serie.map(function (d) { return d.ingresos; }),
+                    backgroundColor: COLOR_INGRESOS,
+                },
+                {
+                    label: 'Egresos',
+                    data: serie.map(function (d) { return d.egresos; }),
+                    backgroundColor: COLOR_EGRESOS,
+                },
+                {
+                    label: 'Pagos a Doctores',
+                    data: serie.map(function (d) { return d.pagosDoctores; }),
+                    backgroundColor: COLOR_DOCTORES,
+                },
+                {
+                    label: 'Pagos a Laboratorios',
+                    data: serie.map(function (d) { return d.pagosLaboratorios; }),
+                    backgroundColor: COLOR_LABS,
+                },
+                {
+                    label: 'Gasto en Materiales',
+                    data: serie.map(function (d) { return d.gastoMateriales; }),
+                    backgroundColor: COLOR_MATERIALES,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            legend: {
+                position: 'top',
+            },
+            tooltips: {
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                    label: function (item, data) {
+                        var label = data.datasets[item.datasetIndex].label || '';
+                        var valor = parseFloat(item.yLabel).toLocaleString('es-PE', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                        });
+                        return label + ': S/ ' + valor;
+                    },
+                },
+            },
+            scales: {
+                xAxes: [{
+                    gridLines: { display: false },
+                }],
+                yAxes: [{
+                    ticks: {
+                        beginAtZero: true,
+                        callback: function (value) {
+                            return 'S/ ' + value.toLocaleString('es-PE');
+                        },
+                    },
+                    gridLines: { color: '#e1e0d9' },
+                }],
+            },
+        },
+    });
+});
+</script>
+<?php endif; ?>

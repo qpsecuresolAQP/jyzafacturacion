@@ -14,6 +14,23 @@ class CategoriasProductosController extends AppController
         $this->set(compact('categoriasProductos'));
     }
 
+    public function view($id = null)
+    {
+        $categoriaProducto = $this->CategoriasProductos->get($id, contain: [
+            'Productos' => function ($q) {
+                return $q->order(['Productos.nombre' => 'ASC']);
+            },
+        ]);
+
+        $this->set(compact('categoriaProducto'));
+        // Usar un layout diferenciado para solicitudes normales o AJAX
+        if ($this->request->is('ajax')) {
+            $this->viewBuilder()->setLayout('ajax');
+        } else {
+            $this->viewBuilder()->setLayout('default');
+        }
+    }
+
     public function add()
     {
         $categoriaProducto = $this->CategoriasProductos->newEmptyEntity();

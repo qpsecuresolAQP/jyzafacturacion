@@ -61,14 +61,27 @@ class ExamenesController extends AppController
     public function add()
     {
         $examene = $this->Examenes->newEmptyEntity();
+
+        $categoriaExamenId = $this->request->getQuery('categoria_examen_id');
+
         if ($this->request->is('post')) {
             $examene = $this->Examenes->patchEntity($examene, $this->request->getData());
             if ($this->Examenes->save($examene)) {
                 $this->Flash->success(__('Examen guardado correctamente.'));
 
+                if (!empty($examene->categoria_examen_id)) {
+                    return $this->redirect([
+                        'controller' => 'CategoriasExamenes',
+                        'action' => 'view',
+                        $examene->categoria_examen_id,
+                    ]);
+                }
+
                 return $this->redirect(['action' => 'index']);
             }
             $this->Flash->error(__('No se pudo guardar el examen.'));
+        } elseif ($categoriaExamenId) {
+            $examene->categoria_examen_id = (int)$categoriaExamenId;
         }
 
         $categoriasExamenes = $this->Examenes->CategoriasExamenes->find('list', [
@@ -97,6 +110,14 @@ class ExamenesController extends AppController
             $examene = $this->Examenes->patchEntity($examene, $this->request->getData());
             if ($this->Examenes->save($examene)) {
                 $this->Flash->success(__('Examen guardado correctamente.'));
+
+                if (!empty($examene->categoria_examen_id)) {
+                    return $this->redirect([
+                        'controller' => 'CategoriasExamenes',
+                        'action' => 'view',
+                        $examene->categoria_examen_id,
+                    ]);
+                }
 
                 return $this->redirect(['action' => 'index']);
             }
