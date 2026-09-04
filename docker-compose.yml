@@ -1,5 +1,6 @@
 services:
   app:
+    build: .
     image: jyzafacturacion-app:latest
     container_name: jyzafacturacion_app
     restart: unless-stopped
@@ -15,8 +16,12 @@ services:
       db:
         condition: service_healthy
     volumes:
+      - ./webroot/img:/var/www/html/webroot/img
+      - ./webroot/uploads:/var/www/html/webroot/uploads
       - ./webroot/xml:/var/www/html/webroot/xml
       - ./webroot/cdr:/var/www/html/webroot/cdr
+      - ./webroot/pdf:/var/www/html/webroot/pdf
+      - ./webroot/certificados:/var/www/html/webroot/certificados
       - app_logs:/var/www/html/logs
       - app_tmp:/var/www/html/tmp
     networks:

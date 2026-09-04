@@ -1635,9 +1635,9 @@ public function comprobanteCuota($cuotaId)
         ->setTemplatePath('Invoices')
         ->setTemplate('comprobante_cuota');
 
-    $logoPath = WWW_ROOT . 'img' . DS . 'logoJyza.webp';
+    $logoPath = WWW_ROOT . 'img' . DS . 'jyzaicon.png';
     if (file_exists($logoPath)) {
-        $logoUrl = 'data:image/webp;base64,' . base64_encode(file_get_contents($logoPath));
+        $logoUrl = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
     } else {
         $logoUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     }
@@ -2010,11 +2010,11 @@ public function comprobanteCuota($cuotaId)
             ->setTemplate('pdf');
 
         // ✅ SOLUCIÓN: Convertir logo a Base64
-        $logoPath = WWW_ROOT . 'img' . DS . 'logoJyza.webp';
+        $logoPath = WWW_ROOT . 'img' . DS . 'jyzaicon.png';
 
         if (file_exists($logoPath)) {
             $logoData = base64_encode(file_get_contents($logoPath));
-            $logoUrl = 'data:image/webp;base64,' . $logoData;
+            $logoUrl = 'data:image/png;base64,' . $logoData;
         } else {
             // Si no existe, usar una imagen vacía
             $logoUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
