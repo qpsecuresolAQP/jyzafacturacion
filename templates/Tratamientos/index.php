@@ -40,7 +40,7 @@
             <?php endif; ?>
         <?= $this->Form->end() ?>
 
-        <?= $this->Html->link(__('Añadir Tratamiento'), ['action' => 'add'], ['class' => 'btn btn-info openModal']) ?>
+        <?= $this->Html->link(__('Añadir Servicio'), ['action' => 'add'], ['class' => 'btn btn-info openModal']) ?>
     </div>
 
     <div class="contenedor principal">
@@ -48,7 +48,7 @@
             <table class="table table-striped mt-3">
                 <thead class="bg-info text-white">
                     <tr>
-                        <th><?= $this->Paginator->sort('id', 'N° de Tratamiento') ?></th>
+                        <th><?= $this->Paginator->sort('id', 'N° de Servicio') ?></th>
                         <th><?= $this->Paginator->sort('nombre', 'Nombre') ?></th>
                         <th><?= $this->Paginator->sort('costo', 'Costo') ?></th>
                         <th><?= $this->Paginator->sort('monto_fijo_pago', 'Pago Fijo Doctor') ?></th>
@@ -111,13 +111,13 @@
                                 <?= $this->Form->postLink(
                                     '<i class="fas fa-ban"></i>',
                                     ['action' => 'delete', $tratamiento->id],
-                                    ['escape' => false, 'title' => 'Desactivar', 'class' => 'btn btn-danger btn-sm', 'confirm' => __('¿Seguro que desea desactivar el tratamiento "{0}"?', $tratamiento->nombre)]
+                                    ['escape' => false, 'title' => 'Desactivar', 'class' => 'btn btn-danger btn-sm', 'confirm' => __('¿Seguro que desea desactivar el servicio "{0}"?', $tratamiento->nombre)]
                                 ) ?>
                             <?php else: ?>
                                 <?= $this->Form->postLink(
                                     '<i class="fas fa-check-circle"></i>',
                                     ['action' => 'reactivar', $tratamiento->id],
-                                    ['escape' => false, 'title' => 'Reactivar', 'class' => 'btn btn-success btn-sm', 'confirm' => __('¿Reactivar el tratamiento "{0}"?', $tratamiento->nombre)]
+                                    ['escape' => false, 'title' => 'Reactivar', 'class' => 'btn btn-success btn-sm', 'confirm' => __('¿Reactivar el servicio "{0}"?', $tratamiento->nombre)]
                                 ) ?>
                             <?php endif; ?>
                         </td>

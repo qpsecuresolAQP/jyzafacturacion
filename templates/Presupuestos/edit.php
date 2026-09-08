@@ -97,7 +97,7 @@
 
     <!-- Tabla de Tratamientos -->
     <div class="col-12 mb-4 mt-3">
-        <h3 class="text-info"><i class="fas fa-tooth"></i> Tratamientos, Productos y Exámenes</h3>
+        <h3 class="text-info"><i class="fas fa-briefcase-medical"></i> Servicios, Productos y Exámenes</h3>
     </div>
 
     <div class="col-12">

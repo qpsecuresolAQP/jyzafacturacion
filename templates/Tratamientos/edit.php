@@ -7,17 +7,17 @@
 <div class="container mt-4 mb-4">
     <?= $this->Form->create($tratamiento, ['class' => 'row g-3']) ?>
 
-    <!-- Información del Tratamiento -->
+    <!-- Información del Servicio -->
     <div class="col-12 mb-4">
-        <h3 class="text-info"><i class="fas fa-tooth"></i> Editar Tratamiento</h3>
+        <h3 class="text-info"><i class="fas fa-briefcase-medical"></i> Editar Servicio</h3>
     </div>
 
     <!-- Campos Nombre -->
     <div class="col-md-12 mb-3">
         <?= $this->Form->control('nombre', [
-            'label' => 'Nombre del Tratamiento',
+            'label' => 'Nombre del Servicio',
             'class' => 'form-control',
-            'placeholder' => 'Ejemplo: Tratamiento, Limpieza Dental'
+            'placeholder' => 'Ejemplo: Servicio, Limpieza Dental'
         ]) ?>
     </div>
 
@@ -27,7 +27,7 @@
             'label' => 'Descripción',
             'class' => 'form-control',
             'type' => 'text',
-            'placeholder' => 'Detalles adicionales del tratamiento'
+            'placeholder' => 'Detalles adicionales del servicio'
         ]) ?>
     </div>
 
@@ -53,7 +53,7 @@
             'placeholder' => 'Ej: 20.00'
         ]) ?>
         <small class="text-muted">
-            Solo aplica a doctores con modo de pago "Monto fijo por tratamiento".
+            Solo aplica a doctores con modo de pago "Monto fijo por servicio".
         </small>
     </div>
 
@@ -68,7 +68,7 @@
             'placeholder' => 'Ej: 15.00'
         ]) ?>
         <small class="text-muted">
-            Costo estimado de los materiales usados en este tratamiento.
+            Costo estimado de los materiales usados en este servicio.
         </small>
     </div>
 
