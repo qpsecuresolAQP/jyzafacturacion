@@ -1,0 +1,80 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- Vaciar tablas (excepto permisos, roles, roles_permisos, usuarios_permisos)
+DELETE FROM cajas;
+DELETE FROM caja_denominaciones;
+DELETE FROM caja_egresos;
+DELETE FROM caja_ingresos;
+DELETE FROM caja_movimientos;
+DELETE FROM categorias;
+DELETE FROM categorias_examenes;
+DELETE FROM categorias_productos;
+DELETE FROM companies;
+DELETE FROM daily_summaries;
+DELETE FROM doctores;
+DELETE FROM doctor_map;
+DELETE FROM doctor_tratamiento_tarifas;
+DELETE FROM examenes;
+DELETE FROM historias_clinicas;
+DELETE FROM invoices;
+DELETE FROM invoice_cuotas;
+DELETE FROM invoice_distribuciones;
+DELETE FROM invoice_items;
+DELETE FROM laboratorios;
+DELETE FROM pacientes;
+DELETE FROM pagos_doctores_historial;
+DELETE FROM pagos_doctores_historial_movimientos;
+DELETE FROM pagos_laboratorios_historial;
+DELETE FROM pagos_laboratorios_historial_distribuciones;
+DELETE FROM phinxlog;
+DELETE FROM presupuestos;
+DELETE FROM presupuestos_invoices;
+DELETE FROM presupuestos_tratamientos;
+DELETE FROM productos;
+DELETE FROM producto_movimientos;
+DELETE FROM proveedores;
+DELETE FROM sessions;
+DELETE FROM tratamientos;
+DELETE FROM users;
+
+-- Reiniciar AUTO_INCREMENT
+ALTER TABLE cajas AUTO_INCREMENT = 1;
+ALTER TABLE caja_denominaciones AUTO_INCREMENT = 1;
+ALTER TABLE caja_egresos AUTO_INCREMENT = 1;
+ALTER TABLE caja_ingresos AUTO_INCREMENT = 1;
+ALTER TABLE caja_movimientos AUTO_INCREMENT = 1;
+ALTER TABLE categorias AUTO_INCREMENT = 1;
+ALTER TABLE categorias_examenes AUTO_INCREMENT = 1;
+ALTER TABLE categorias_productos AUTO_INCREMENT = 1;
+ALTER TABLE companies AUTO_INCREMENT = 1;
+ALTER TABLE daily_summaries AUTO_INCREMENT = 1;
+ALTER TABLE doctores AUTO_INCREMENT = 1;
+ALTER TABLE doctor_map AUTO_INCREMENT = 1;
+ALTER TABLE doctor_tratamiento_tarifas AUTO_INCREMENT = 1;
+ALTER TABLE examenes AUTO_INCREMENT = 1;
+ALTER TABLE historias_clinicas AUTO_INCREMENT = 1;
+ALTER TABLE invoices AUTO_INCREMENT = 1;
+ALTER TABLE invoice_cuotas AUTO_INCREMENT = 1;
+ALTER TABLE invoice_distribuciones AUTO_INCREMENT = 1;
+ALTER TABLE invoice_items AUTO_INCREMENT = 1;
+ALTER TABLE laboratorios AUTO_INCREMENT = 1;
+ALTER TABLE pacientes AUTO_INCREMENT = 1;
+ALTER TABLE pagos_doctores_historial AUTO_INCREMENT = 1;
+ALTER TABLE pagos_doctores_historial_movimientos AUTO_INCREMENT = 1;
+ALTER TABLE pagos_laboratorios_historial AUTO_INCREMENT = 1;
+ALTER TABLE pagos_laboratorios_historial_distribuciones AUTO_INCREMENT = 1;
+ALTER TABLE phinxlog AUTO_INCREMENT = 1;
+ALTER TABLE presupuestos AUTO_INCREMENT = 1;
+ALTER TABLE presupuestos_invoices AUTO_INCREMENT = 1;
+ALTER TABLE presupuestos_tratamientos AUTO_INCREMENT = 1;
+ALTER TABLE productos AUTO_INCREMENT = 1;
+ALTER TABLE producto_movimientos AUTO_INCREMENT = 1;
+ALTER TABLE proveedores AUTO_INCREMENT = 1;
+ALTER TABLE sessions AUTO_INCREMENT = 1;
+ALTER TABLE tratamientos AUTO_INCREMENT = 1;
+ALTER TABLE users AUTO_INCREMENT = 1;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+INSERT INTO `users` (`username`, `password`, `rol_id`, `created`, `modified`, `doctor_id`, `estado_user`) VALUES
+('devsDK', '$2y$10$RIQL.QrTKnH4ycRL8WjXy.s/z1Z6aFjwNMd.YUBdcyFoMjiwJvyDm', 1, '2026-01-16 21:56:06', '2025-06-14 23:50:06', NULL, 'A');
