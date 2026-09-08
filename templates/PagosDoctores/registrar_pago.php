@@ -93,7 +93,7 @@
                     <div class="card-body">
                         <!-- CONCEPTOS (tratamientos) -->
                         <div class="mb-3">
-                            <h6 class="text-muted mb-2"><i class="fas fa-tooth"></i> Conceptos</h6>
+                            <h6 class="text-muted mb-2"><i class="fas fa-briefcase-medical"></i> Conceptos</h6>
                             <?php if (!empty($comp['conceptos'])): ?>
                                 <ul class="list-unstyled mb-0">
                                     <?php foreach ($comp['conceptos'] as $concepto): ?>

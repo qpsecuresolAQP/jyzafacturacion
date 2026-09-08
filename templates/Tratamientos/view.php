@@ -5,19 +5,19 @@
  */
 ?>
 
-<?php $this->assign('title', 'Detalle de Tratamiento'); ?>
+<?php $this->assign('title', 'Detalle de Servicio'); ?>
 
 <div class="tratamientos view content">
 
 
     <div class="container mt-4 mb-4">
         <div class="row justify-content-center">
-            <div class="col-md-8 offset-md-2 row g-3">
+            <div class="col-md-10 offset-md row g-3">
 
                 <!-- Título -->
                 <div class="col-12 mb-4">
                     <h3 class="text-info">
-                        <i class="fas fa-tooth"></i> <?= h($tratamiento->nombre) ?>
+                        <i class="fas fa-briefcase-medical"></i> <?= h($tratamiento->nombre) ?>
                     </h3>
                 </div>
 

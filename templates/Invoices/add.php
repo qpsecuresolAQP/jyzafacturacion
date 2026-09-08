@@ -80,7 +80,7 @@
                                         <label class="form-label fw-semibold">Tipo Documento</label>
                                         <select name="tipo_doc" id="tipo_doc" class="form-select form-select-solid" required>
                                             <option value="RI">Recibo Interno</option>
-                                            <option value="03">Boleta</option>
+                                            <option value="03" selected>Boleta</option>
                                             <option value="01">Factura</option>
                                         </select>
                                     </div>
@@ -183,7 +183,7 @@
                             </div>
                             <div class="card-body pt-4 pb-4">
                                 <div id="items-container">
-                                    <p class="text-muted mb-0" id="no-items-placeholder">No hay items agregados. Usa los botones de abajo para agregar un tratamiento, producto o examen.</p>
+                                    <p class="text-muted mb-0" id="no-items-placeholder">No hay items agregados. Usa los botones de abajo para agregar un servicio, producto o examen.</p>
                                 </div>
                                 <div class="d-flex gap-2 flex-wrap mt-2">
                                     <button type="button" class="btn btn-sm btn-outline-info" id="btn-add-item">
@@ -922,9 +922,9 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
     }
 
     const tipoItemBadges = {
-        tratamiento: { label: 'Tratamiento', icon: 'fa-tooth', color: 'info' },
-        producto:    { label: 'Producto',    icon: 'fa-box',   color: 'primary' },
-        examen:      { label: 'Examen',      icon: 'fa-flask', color: 'warning' },
+        tratamiento: { label: 'Servicio', icon: 'fa-briefcase-medical', color: 'info' },
+        producto:    { label: 'Producto', icon: 'fa-box',   color: 'primary' },
+        examen:      { label: 'Examen',   icon: 'fa-flask', color: 'warning' },
     };
 
     function addItemRow(tipo, focusRow) {
@@ -943,7 +943,7 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
                                 <span class="badge bg-${badge.color} py-2 px-3 tipo-item-badge"><i class="fas ${badge.icon} me-1 tipo-item-badge-icon"></i><span class="tipo-item-badge-label">${badge.label}</span></span>
                             </div>
                             <select name="items[${itemIndex}][tipo_item]" class="form-select form-select-solid tipo-item-select d-none">
-                                <option value="tratamiento" ${tipo === 'tratamiento' ? 'selected' : ''}>Tratamiento</option>
+                                <option value="tratamiento" ${tipo === 'tratamiento' ? 'selected' : ''}>Servicio</option>
                                 <option value="producto" ${tipo === 'producto' ? 'selected' : ''}>Producto</option>
                                 <option value="examen" ${tipo === 'examen' ? 'selected' : ''}>Examen</option>
                             </select>
@@ -951,7 +951,7 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
 
                         <!-- Búsqueda unificada: tratamiento, producto o examen -->
                         <div class="col-md-6 item-search-wrap">
-                            <label class="form-label fw-semibold">Buscar Tratamiento / Producto / Examen</label>
+                            <label class="form-label fw-semibold">Buscar Servicio / Producto / Examen</label>
                             <input type="text" class="form-control form-control-solid search-item" placeholder="Escriba para buscar...">
                             <div class="list-group resultados-item mt-2" style="max-height: 250px; overflow-y: auto;"></div>
                             <input type="hidden" name="items[${itemIndex}][tratamiento_id]" class="tratamiento-id">
@@ -966,7 +966,7 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
                                 Descripción interna 
                                 <small class="text-muted fw-normal">(nota para uso interno)</small>
                             </label>
-                            <input type="text" name="items[${itemIndex}][descripcion]" class="form-control form-control-solid descripcion-input" placeholder="Describa el tratamiento o producto">
+                            <input type="text" name="items[${itemIndex}][descripcion]" class="form-control form-control-solid descripcion-input" placeholder="Describa el servicio o producto">
                         </div>
 
                         <!-- Cantidad -->
@@ -1197,7 +1197,7 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
         if (e.target.classList.contains('btn-remove-item')) {
             e.target.closest('.item-row').remove();
             if (itemsContainer.querySelectorAll('.item-row').length === 0) {
-                itemsContainer.innerHTML = '<p class="text-muted mb-0" id="no-items-placeholder">No hay items agregados. Usa los botones de abajo para agregar un tratamiento, producto o examen.</p>';
+                itemsContainer.innerHTML = '<p class="text-muted mb-0" id="no-items-placeholder">No hay items agregados. Usa los botones de abajo para agregar un servicio, producto o examen.</p>';
             }
             actualizarPago();
         }
@@ -1224,7 +1224,7 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
 
         // Validar que haya al menos un item agregado
         if (itemsContainer.querySelectorAll('.item-row').length === 0) {
-            alert('Debes agregar al menos un item (tratamiento, producto o examen).');
+            alert('Debes agregar al menos un item (servicio, producto o examen).');
             e.preventDefault();
             return false;
         }

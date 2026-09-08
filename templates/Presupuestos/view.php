@@ -28,7 +28,7 @@
 <div class="container">
     <!-- Header -->
     <div class="mb-4 mt-3">
-        <h3 class="text-info"><i class="fas fa-tooth"></i> Información del Presupuesto</h3>
+        <h3 class="text-info"><i class="fas fa-briefcase-medical"></i> Información del Presupuesto</h3>
     </div>
 
     <!-- Cuerpo -->

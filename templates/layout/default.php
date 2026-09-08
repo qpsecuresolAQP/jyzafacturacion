@@ -137,13 +137,23 @@
                     </a>
                 </li>
                 <?php endif; ?>
-                
-                <!-- Tratamientos -->
+
+                <!-- Facturas -->
+                <?php if ($this->Permisos->tiene('Invoices', 'index')): ?>
+                <li class="nav-item">
+                    <a href="<?= $this->Url->build(['controller' => 'Invoices', 'action' => 'index']) ?>" class="nav-link">
+                        <i class="fas fa-file-invoice nav-icon"></i>
+                        <p>Facturas</p>
+                    </a>
+                </li>
+                <?php endif; ?>
+
+                <!-- Servicios (Tratamientos) -->
                 <?php if ($this->Permisos->tiene('Tratamientos', 'index')): ?>
                 <li class="nav-item">
                     <a href="<?= $this->Url->build(['controller' => 'Tratamientos', 'action' => 'index']) ?>" class="nav-link">
                         <i class="fas fa-stethoscope nav-icon"></i>
-                        <p>Tratamientos</p>
+                        <p>Servicios</p>
                     </a>
                 </li>
                 <?php endif; ?>
@@ -294,16 +304,9 @@
                     </a>
                 </li>
                 <?php endif; ?>
-                <li class="nav-item">
-                    <a href="<?= $this->Url->build(['controller' => 'Invoices', 'action' => 'index']) ?>" class="nav-link">
-                        <i class="fas fa-file-invoice nav-icon"></i>
-                        <p>Facturas</p>
-                    </a>
-                </li>
-
-                </li>
                 <?php endif; ?>
-                        <?php if ($this->Permisos->tiene('Reportes', 'index')): ?>
+
+                <?php if ($this->Permisos->tiene('Reportes', 'index')): ?>
                 <li class="nav-item">
                     <a href="<?= $this->Url->build(['controller' => 'Reportes', 'action' => 'index']) ?>" class="nav-link">
                         <i class="fas fa-chart-bar nav-icon"></i>

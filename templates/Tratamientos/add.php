@@ -11,14 +11,14 @@
             <!-- Alerta de permiso -->
             <?php if (!$this->Permisos->tiene('Tratamientos', 'add')): ?>
                 <div class="alert alert-danger" role="alert">
-                    <i class="fas fa-lock"></i> No tienes permisos para registrar tratamientos.
+                    <i class="fas fa-lock"></i> No tienes permisos para registrar servicios.
                 </div>
             <?php else: ?>
                 <?= $this->Form->create($tratamiento, ['class' => 'row g-3']) ?>
 
                 <!-- Título -->
                 <div class="col-12 mb-4">
-                    <h3 class="text-info"><i class="fas fa-tooth"></i> Registrar Nuevo Tratamiento</h3>
+                    <h3 class="text-info"><i class="fas fa-briefcase-medical"></i> Registrar Nuevo Servicio</h3>
                 </div>
 
                 <!-- Nombre -->
@@ -37,7 +37,7 @@
                         'label'       => 'Descripción',
                         'type'        => 'textarea',
                         'class'       => 'form-control',
-                        'placeholder' => 'Detalles y características del tratamiento',
+                        'placeholder' => 'Detalles y características del servicio',
                         'rows'        => 4
                     ]) ?>
                 </div>
@@ -66,7 +66,7 @@
                         'min'         => '0',
                     ]) ?>
                     <small class="text-muted">
-                        Solo aplica a doctores con modo de pago "Monto fijo por tratamiento".
+                        Solo aplica a doctores con modo de pago "Monto fijo por servicio".
                         Deja en 0 si no corresponde.
                     </small>
                 </div>
@@ -82,14 +82,14 @@
                         'min'         => '0',
                     ]) ?>
                     <small class="text-muted">
-                        Costo estimado de los materiales usados en este tratamiento. Se descuenta del costo
+                        Costo estimado de los materiales usados en este servicio. Se descuenta del costo
                         para calcular la utilidad real (costo − pago doctor − materiales).
                     </small>
                 </div>
 
                 <!-- Botones -->
                 <div class="col-12 text-center">
-                    <?= $this->Form->button(__('Guardar Tratamiento'), ['class' => 'btn btn-info', 'id' => 'btnGuardar']) ?>
+                    <?= $this->Form->button(__('Guardar Servicio'), ['class' => 'btn btn-info', 'id' => 'btnGuardar']) ?>
                     <?= $this->Html->link(__('Cancelar'), ['action' => 'index'], ['class' => 'btn btn-secondary ms-2']) ?>
                 </div>
 
