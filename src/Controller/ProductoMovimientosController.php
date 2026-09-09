@@ -58,11 +58,7 @@ class ProductoMovimientosController extends AppController
                 if ($ok) {
                     $this->Flash->success('El movimiento de stock fue registrado correctamente.');
 
-                    return $this->redirect([
-                        'controller' => 'CategoriasProductos',
-                        'action' => 'view',
-                        $producto->categoria_producto_id,
-                    ]);
+                    return $this->redirect($this->origenRedirect($producto));
                 }
 
                 $this->Flash->error('No se pudo registrar el movimiento.');
@@ -93,5 +89,24 @@ class ProductoMovimientosController extends AppController
         } else {
             $this->viewBuilder()->setLayout('default');
         }
+    }
+
+    /**
+     * Decide a dónde volver tras registrar un movimiento: si se llegó desde
+     * el listado general de Productos, vuelve ahí; si se llegó desde la
+     * vista de una categoría, vuelve a esa categoría (comportamiento previo).
+     */
+    private function origenRedirect($producto): array
+    {
+        $referer = $this->request->referer();
+        if ($referer && str_contains($referer, '/productos') && !str_contains($referer, '/categorias-productos/')) {
+            return ['controller' => 'Productos', 'action' => 'index'];
+        }
+
+        return [
+            'controller' => 'CategoriasProductos',
+            'action' => 'view',
+            $producto->categoria_producto_id,
+        ];
     }
 }

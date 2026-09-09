@@ -147,6 +147,24 @@
                                 ) ?>
                             <?php endif; ?>
 
+                            <!-- Registrar movimiento de stock (solo si tiene permiso) -->
+                            <?php if ($this->Permisos->tiene('ProductoMovimientos', 'add')): ?>
+                                <?= $this->Html->link(
+                                    '<i class="fas fa-boxes"></i>',
+                                    ['controller' => 'ProductoMovimientos', 'action' => 'add', $producto->id],
+                                    ['escape' => false, 'title' => 'Registrar Ingreso/Egreso', 'class' => 'btn btn-info btn-sm openModal']
+                                ) ?>
+                            <?php endif; ?>
+
+                            <!-- Historial de movimientos (solo si tiene permiso) -->
+                            <?php if ($this->Permisos->tiene('ProductoMovimientos', 'historial')): ?>
+                                <?= $this->Html->link(
+                                    '<i class="fas fa-history"></i>',
+                                    ['controller' => 'ProductoMovimientos', 'action' => 'historial', $producto->id],
+                                    ['escape' => false, 'title' => 'Historial de Movimientos', 'class' => 'btn btn-secondary btn-sm openModal']
+                                ) ?>
+                            <?php endif; ?>
+
                             <!-- Desactivar (solo si tiene permiso y sigue activo) -->
                             <?php if ($this->Permisos->tiene('Productos', 'delete') && (int)$producto->estado === 1): ?>
                                 <?= $this->Form->postLink(
