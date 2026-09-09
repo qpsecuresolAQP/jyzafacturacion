@@ -4,9 +4,9 @@
  * @var \App\Model\Entity\CategoriaProducto $categoriaProducto
  */
 ?>
-<div class="container mt-4 mb-4">
+<div class="container-fluid mt-4 mb-4">
     <div class="row">
-        <div class="col-md-10 offset-md-1">
+        <div class="col-12 col-xl-10 offset-xl-1">
             <div class="d-flex justify-content-between align-items-center mb-4 mt-3 flex-wrap gap-2">
                 <h3 class="text-info mb-0"><i class="fas fa-box"></i> Categoría: <?= h($categoriaProducto->nombre) ?></h3>
 
@@ -50,7 +50,15 @@
                 <?php endif; ?>
             </div>
             <div class="table-responsive">
-                <table class="table table-striped mt-2">
+                <table class="table table-striped mt-2" style="table-layout: fixed; width: 100%; min-width: 760px;">
+                    <colgroup>
+                        <col style="width: 32%;">
+                        <col style="width: 13%;">
+                        <col style="width: 12%;">
+                        <col style="width: 10%;">
+                        <col style="width: 10%;">
+                        <col style="width: 23%;">
+                    </colgroup>
                     <thead class="bg-info text-white">
                         <tr>
                             <th>Nombre</th>
@@ -69,8 +77,8 @@
                         <?php else: ?>
                             <?php foreach ($categoriaProducto->productos as $producto): ?>
                                 <tr data-nombre="<?= h(mb_strtolower($producto->nombre)) ?>" data-codigo="<?= h(mb_strtolower((string)$producto->codigo)) ?>">
-                                    <td><?= h($producto->nombre) ?></td>
-                                    <td><?= h($producto->codigo ?: '-') ?></td>
+                                    <td class="text-truncate" style="max-width: 0;" title="<?= h($producto->nombre) ?>"><?= h($producto->nombre) ?></td>
+                                    <td class="text-truncate" style="max-width: 0;"><?= h($producto->codigo ?: '-') ?></td>
                                     <td><?= number_format((float)$producto->precio, 2) ?></td>
                                     <td><?= $this->Number->format($producto->stock) ?></td>
                                     <td>
@@ -79,7 +87,7 @@
                                             <?= $prodActivo ? 'Activo' : 'Inactivo' ?>
                                         </span>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center text-nowrap">
                                         <?php if ($this->Permisos->tiene('Productos', 'edit')): ?>
                                             <?= $this->Html->link(
                                                 '<i class="fas fa-edit"></i>',
