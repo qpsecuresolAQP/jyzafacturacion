@@ -164,8 +164,12 @@ class ProductosController extends AppController
         $producto = $this->Productos->get($id);
         $categoriaProductoId = $producto->categoria_producto_id;
 
+        // Desactivación manual y directa: si el producto había sido
+        // reactivado o estaba marcado por una cascada previa, esa marca ya
+        // no aplica — este apagado es decisión propia del usuario, no debe
+        // revivir automáticamente si luego se reactiva la categoría.
         if ($this->Productos->save(
-            $this->Productos->patchEntity($producto, ['estado' => 0])
+            $this->Productos->patchEntity($producto, ['estado' => 0, 'desactivado_por_categoria' => 0])
         )) {
             $this->Flash->success('El producto fue desactivado correctamente.');
         } else {
@@ -186,7 +190,35 @@ class ProductosController extends AppController
         return $this->redirect(['action' => 'index']);
     }
 
-    
+    /**
+     * Reactiva un producto previamente desactivado.
+     */
+    public function reactivar($id = null)
+    {
+        $this->request->allowMethod(['post']);
+
+        $producto = $this->Productos->get($id);
+        $categoriaProductoId = $producto->categoria_producto_id;
+
+        if ($this->Productos->save(
+            $this->Productos->patchEntity($producto, ['estado' => 1, 'desactivado_por_categoria' => 0])
+        )) {
+            $this->Flash->success('El producto fue reactivado correctamente.');
+        } else {
+            $this->Flash->error('No se pudo reactivar el producto.');
+        }
+
+        $referer = $this->request->referer();
+        if ($referer && str_contains($referer, '/categorias-productos/view/')) {
+            return $this->redirect([
+                'controller' => 'CategoriasProductos',
+                'action' => 'view',
+                $categoriaProductoId,
+            ]);
+        }
+
+        return $this->redirect(['action' => 'index']);
+    }
 
     public function buscar()
 {
@@ -200,7 +232,10 @@ class ProductosController extends AppController
     }
 
     $productos = $this->Productos->find()
-        ->where(['nombre LIKE' => '%' . $q . '%'])
+        ->where([
+            'nombre LIKE' => '%' . $q . '%',
+            'estado' => 1,
+        ])
         ->limit(10)
         ->all();
 

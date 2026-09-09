@@ -151,7 +151,11 @@ class ExamenesController extends AppController
 
         // Eliminación lógica: solo se desactiva, no se borra el registro
         // (queda referenciado por facturas ya emitidas vía invoice_items.examen_id).
+        // Desactivación manual y directa: limpia la marca de cascada previa
+        // si la tuviera — este apagado es decisión propia del usuario, no
+        // debe revivir automáticamente si luego se reactiva la categoría.
         $examene->estado = 0;
+        $examene->desactivado_por_categoria = 0;
 
         if ($this->Examenes->save($examene)) {
             $this->Flash->success(__('Examen desactivado correctamente.'));
@@ -185,6 +189,7 @@ class ExamenesController extends AppController
         $examene = $this->Examenes->get($id);
 
         $examene->estado = 1;
+        $examene->desactivado_por_categoria = 0;
 
         if ($this->Examenes->save($examene)) {
             $this->Flash->success(__('Examen reactivado correctamente.'));

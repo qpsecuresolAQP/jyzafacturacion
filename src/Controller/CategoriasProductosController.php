@@ -8,8 +8,16 @@ class CategoriasProductosController extends AppController
     public function index()
     {
         $searchTerm = trim((string) $this->request->getQuery('search', ''));
+        $estadoFiltro = $this->request->getQuery('estado', 'activos');
 
         $query = $this->CategoriasProductos->find()->order(['CategoriasProductos.id' => 'DESC']);
+
+        if ($estadoFiltro === 'activos') {
+            $query->where(['CategoriasProductos.estado' => 1]);
+        } elseif ($estadoFiltro === 'inactivos') {
+            $query->where(['CategoriasProductos.estado' => 0]);
+        }
+        // 'todos' no aplica filtro
 
         if ($searchTerm !== '') {
             $query->where([
@@ -19,19 +27,27 @@ class CategoriasProductosController extends AppController
 
         $categoriasProductos = $this->paginate($query);
 
-        $this->set(compact('categoriasProductos', 'searchTerm'));
+        $this->set(compact('categoriasProductos', 'searchTerm', 'estadoFiltro'));
     }
 
     public function view($id = null)
     {
         $categoriaProducto = $this->CategoriasProductos->get($id, contain: [
             'Productos' => function ($q) {
-                return $q->where(['Productos.estado' => 1])
-                    ->order(['Productos.nombre' => 'ASC']);
+                return $q->order(['Productos.nombre' => 'ASC']);
             },
         ]);
 
-        $this->set(compact('categoriaProducto'));
+        // Separar activos e inactivos: la tabla principal solo muestra los
+        // activos, los inactivos van en su propio apartado reactivable.
+        $productosActivos = $categoriaProducto->productos
+            ? array_values(array_filter($categoriaProducto->productos, fn($p) => (int)$p->estado === 1))
+            : [];
+        $productosInactivos = $categoriaProducto->productos
+            ? array_values(array_filter($categoriaProducto->productos, fn($p) => (int)$p->estado === 0))
+            : [];
+
+        $this->set(compact('categoriaProducto', 'productosActivos', 'productosInactivos'));
         // Usar un layout diferenciado para solicitudes normales o AJAX
         if ($this->request->is('ajax')) {
             $this->viewBuilder()->setLayout('ajax');
@@ -100,10 +116,27 @@ class CategoriasProductosController extends AppController
 
         $categoriaProducto = $this->CategoriasProductos->get($id);
 
-        if ($this->CategoriasProductos->save(
-            $this->CategoriasProductos->patchEntity($categoriaProducto, ['estado' => 0])
-        )) {
-            $this->Flash->success('La categoría fue desactivada correctamente.');
+        $conn = $this->CategoriasProductos->getConnection();
+        $ok = $conn->transactional(function () use ($categoriaProducto) {
+            if (!$this->CategoriasProductos->save(
+                $this->CategoriasProductos->patchEntity($categoriaProducto, ['estado' => 0])
+            )) {
+                return false;
+            }
+
+            // Cascada: desactiva también los productos que sigan activos,
+            // marcándolos para poder distinguirlos luego de los que ya
+            // estaban inactivos por su cuenta (esos no se tocan).
+            $this->CategoriasProductos->Productos->updateAll(
+                ['estado' => 0, 'desactivado_por_categoria' => 1],
+                ['categoria_producto_id' => $categoriaProducto->id, 'estado' => 1]
+            );
+
+            return true;
+        });
+
+        if ($ok) {
+            $this->Flash->success('La categoría y sus productos fueron desactivados correctamente.');
         } else {
             $this->Flash->error('No se pudo desactivar la categoría.');
         }
@@ -112,7 +145,10 @@ class CategoriasProductosController extends AppController
     }
 
     /**
-     * Reactiva una categoría de producto previamente desactivada.
+     * Reactiva una categoría de producto previamente desactivada. Solo
+     * reactiva los productos que la propia cascada de delete() había
+     * desactivado (desactivado_por_categoria = 1); los que ya estaban
+     * inactivos por su cuenta antes de eso quedan como estaban.
      */
     public function reactivar($id = null)
     {
@@ -120,10 +156,24 @@ class CategoriasProductosController extends AppController
 
         $categoriaProducto = $this->CategoriasProductos->get($id);
 
-        if ($this->CategoriasProductos->save(
-            $this->CategoriasProductos->patchEntity($categoriaProducto, ['estado' => 1])
-        )) {
-            $this->Flash->success('La categoría fue reactivada correctamente.');
+        $conn = $this->CategoriasProductos->getConnection();
+        $ok = $conn->transactional(function () use ($categoriaProducto) {
+            if (!$this->CategoriasProductos->save(
+                $this->CategoriasProductos->patchEntity($categoriaProducto, ['estado' => 1])
+            )) {
+                return false;
+            }
+
+            $this->CategoriasProductos->Productos->updateAll(
+                ['estado' => 1, 'desactivado_por_categoria' => 0],
+                ['categoria_producto_id' => $categoriaProducto->id, 'desactivado_por_categoria' => 1]
+            );
+
+            return true;
+        });
+
+        if ($ok) {
+            $this->Flash->success('La categoría fue reactivada correctamente, junto con los productos que se desactivaron con ella.');
         } else {
             $this->Flash->error('No se pudo reactivar la categoría.');
         }

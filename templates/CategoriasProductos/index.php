@@ -3,6 +3,7 @@
  * @var \App\View\AppView $this
  * @var iterable<\App\Model\Entity\CategoriaProducto> $categoriasProductos
  * @var string $searchTerm
+ * @var string $estadoFiltro
  */
 ?>
 
@@ -10,7 +11,20 @@
 
 <div class="categorias-productos index content">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="btn-group" role="group">
+            <?= $this->Html->link('Activos', ['action' => 'index', '?' => ['estado' => 'activos', 'search' => $searchTerm]], [
+                'class' => 'btn btn-sm ' . ($estadoFiltro === 'activos' ? 'btn-info' : 'btn-outline-info'),
+            ]) ?>
+            <?= $this->Html->link('Inactivos', ['action' => 'index', '?' => ['estado' => 'inactivos', 'search' => $searchTerm]], [
+                'class' => 'btn btn-sm ' . ($estadoFiltro === 'inactivos' ? 'btn-info' : 'btn-outline-info'),
+            ]) ?>
+            <?= $this->Html->link('Todos', ['action' => 'index', '?' => ['estado' => 'todos', 'search' => $searchTerm]], [
+                'class' => 'btn btn-sm ' . ($estadoFiltro === 'todos' ? 'btn-info' : 'btn-outline-info'),
+            ]) ?>
+        </div>
+
         <?= $this->Form->create(null, ['type' => 'get', 'class' => 'd-flex gap-2']) ?>
+            <?= $this->Form->hidden('estado', ['value' => $estadoFiltro]) ?>
             <?= $this->Form->control('search', [
                 'label' => false,
                 'value' => $searchTerm,
@@ -20,7 +34,7 @@
             ]) ?>
             <button type="submit" class="btn btn-sm btn-outline-info"><i class="fas fa-search"></i></button>
             <?php if ($searchTerm !== ''): ?>
-                <?= $this->Html->link('<i class="fas fa-times"></i>', ['action' => 'index'], [
+                <?= $this->Html->link('<i class="fas fa-times"></i>', ['action' => 'index', '?' => ['estado' => $estadoFiltro]], [
                     'escape' => false,
                     'class' => 'btn btn-sm btn-outline-secondary',
                     'title' => 'Limpiar búsqueda',

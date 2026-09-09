@@ -64,6 +64,10 @@ class ProductosTable extends Table
             ->integer('proveedor_id')
             ->allowEmptyString('proveedor_id');
 
+        $validator
+            ->boolean('desactivado_por_categoria')
+            ->allowEmptyString('desactivado_por_categoria');
+
         return $validator;
     }
 }

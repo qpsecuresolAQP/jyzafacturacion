@@ -48,11 +48,20 @@ class CategoriasExamenesController extends AppController
     {
         $categoriasExamene = $this->CategoriasExamenes->get($id, contain: [
             'Examenes' => function ($q) {
-                return $q->where(['Examenes.estado' => 1])
-                    ->order(['Examenes.nombre' => 'ASC']);
+                return $q->order(['Examenes.nombre' => 'ASC']);
             },
         ]);
-        $this->set(compact('categoriasExamene'));
+
+        // Separar activos e inactivos: la tabla principal solo muestra los
+        // activos, los inactivos van en su propio apartado reactivable.
+        $examenesActivos = $categoriasExamene->examenes
+            ? array_values(array_filter($categoriasExamene->examenes, fn($e) => (int)$e->estado === 1))
+            : [];
+        $examenesInactivos = $categoriasExamene->examenes
+            ? array_values(array_filter($categoriasExamene->examenes, fn($e) => (int)$e->estado === 0))
+            : [];
+
+        $this->set(compact('categoriasExamene', 'examenesActivos', 'examenesInactivos'));
         // Usar un layout diferenciado para solicitudes normales o AJAX
         if ($this->request->is('ajax')) {
             $this->viewBuilder()->setLayout('ajax');
@@ -108,12 +117,28 @@ class CategoriasExamenesController extends AppController
         $this->request->allowMethod(['post', 'delete']);
         $categoriasExamene = $this->CategoriasExamenes->get($id);
 
-        // Eliminación lógica: solo se desactiva, no se borra el registro
-        // (los exámenes existentes de esta categoría no deben quedar huérfanos).
-        $categoriasExamene->estado = 0;
+        $conn = $this->CategoriasExamenes->getConnection();
+        $ok = $conn->transactional(function () use ($categoriasExamene) {
+            // Eliminación lógica: solo se desactiva, no se borra el registro
+            // (los exámenes existentes de esta categoría no deben quedar huérfanos).
+            $categoriasExamene->estado = 0;
+            if (!$this->CategoriasExamenes->save($categoriasExamene)) {
+                return false;
+            }
 
-        if ($this->CategoriasExamenes->save($categoriasExamene)) {
-            $this->Flash->success(__('Categoría de examen desactivada correctamente.'));
+            // Cascada: desactiva también los exámenes que sigan activos,
+            // marcándolos para poder distinguirlos luego de los que ya
+            // estaban inactivos por su cuenta (esos no se tocan).
+            $this->CategoriasExamenes->Examenes->updateAll(
+                ['estado' => 0, 'desactivado_por_categoria' => 1],
+                ['categoria_examen_id' => $categoriasExamene->id, 'estado' => 1]
+            );
+
+            return true;
+        });
+
+        if ($ok) {
+            $this->Flash->success(__('Categoría de examen y sus exámenes fueron desactivados correctamente.'));
         } else {
             $this->Flash->error(__('No se pudo desactivar la categoría de examen.'));
         }
@@ -122,7 +147,10 @@ class CategoriasExamenesController extends AppController
     }
 
     /**
-     * Reactiva una categoría de examen previamente desactivada.
+     * Reactiva una categoría de examen previamente desactivada. Solo
+     * reactiva los exámenes que la propia cascada de delete() había
+     * desactivado (desactivado_por_categoria = 1); los que ya estaban
+     * inactivos por su cuenta antes de eso quedan como estaban.
      *
      * @param string|null $id Categoría de examen id.
      * @return \Cake\Http\Response|null Redirects to index.
@@ -132,10 +160,23 @@ class CategoriasExamenesController extends AppController
         $this->request->allowMethod(['post']);
         $categoriasExamene = $this->CategoriasExamenes->get($id);
 
-        $categoriasExamene->estado = 1;
+        $conn = $this->CategoriasExamenes->getConnection();
+        $ok = $conn->transactional(function () use ($categoriasExamene) {
+            $categoriasExamene->estado = 1;
+            if (!$this->CategoriasExamenes->save($categoriasExamene)) {
+                return false;
+            }
 
-        if ($this->CategoriasExamenes->save($categoriasExamene)) {
-            $this->Flash->success(__('Categoría de examen reactivada correctamente.'));
+            $this->CategoriasExamenes->Examenes->updateAll(
+                ['estado' => 1, 'desactivado_por_categoria' => 0],
+                ['categoria_examen_id' => $categoriasExamene->id, 'desactivado_por_categoria' => 1]
+            );
+
+            return true;
+        });
+
+        if ($ok) {
+            $this->Flash->success(__('Categoría de examen reactivada correctamente, junto con los exámenes que se desactivaron con ella.'));
         } else {
             $this->Flash->error(__('No se pudo reactivar la categoría de examen.'));
         }

@@ -78,6 +78,10 @@ class ExamenesTable extends Table
             ->boolean('estado')
             ->notEmptyString('estado');
 
+        $validator
+            ->boolean('desactivado_por_categoria')
+            ->allowEmptyString('desactivado_por_categoria');
+
         return $validator;
     }
 

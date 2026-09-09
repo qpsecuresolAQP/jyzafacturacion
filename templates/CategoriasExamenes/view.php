@@ -2,6 +2,8 @@
 /**
  * @var \App\View\AppView $this
  * @var \App\Model\Entity\CategoriasExamene $categoriasExamene
+ * @var array $examenesActivos
+ * @var array $examenesInactivos
  */
 ?>
 <div class="container-fluid mt-4 mb-4">
@@ -34,7 +36,7 @@
 
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <h5 class="text-info mb-0">Exámenes en esta categoría</h5>
-                <?php if (!empty($categoriasExamene->examenes)): ?>
+                <?php if (!empty($examenesActivos)): ?>
                     <div class="d-flex gap-2">
                         <input type="text" id="buscarExamenCategoria" class="form-control form-control-sm" placeholder="Buscar por nombre o muestra..." style="min-width: 240px;">
                         <button type="button" id="limpiarBuscarExamenCategoria" class="btn btn-sm btn-outline-secondary" title="Limpiar búsqueda">
@@ -64,21 +66,19 @@
                         </tr>
                     </thead>
                     <tbody id="tablaExamenesCategoria">
-                        <?php if (empty($categoriasExamene->examenes)): ?>
+                        <?php if (empty($examenesActivos)): ?>
                             <tr>
-                                <td colspan="6" class="text-center text-muted">No hay exámenes registrados en esta categoría.</td>
+                                <td colspan="6" class="text-center text-muted">No hay exámenes activos en esta categoría.</td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($categoriasExamene->examenes as $examen): ?>
+                            <?php foreach ($examenesActivos as $examen): ?>
                                 <tr data-nombre="<?= h(mb_strtolower($examen->nombre)) ?>" data-muestra="<?= h(mb_strtolower((string)$examen->muestra)) ?>">
                                     <td class="text-truncate" style="max-width: 0;" title="<?= h($examen->nombre) ?>"><?= h($examen->nombre) ?></td>
                                     <td class="text-truncate" style="max-width: 0;"><?= h($examen->muestra ?: '-') ?></td>
                                     <td><?= number_format((float)$examen->precio, 2) ?></td>
                                     <td><?= number_format((float)$examen->precio_convenio, 2) ?></td>
                                     <td>
-                                        <span class="badge bg-<?= $examen->estado ? 'success' : 'secondary' ?>">
-                                            <?= $examen->estado ? 'Activo' : 'Inactivo' ?>
-                                        </span>
+                                        <span class="badge badge-success">Activo</span>
                                     </td>
                                     <td class="text-center text-nowrap">
                                         <?php if ($this->Permisos->tiene('Examenes', 'edit')): ?>
@@ -104,6 +104,55 @@
                 <p id="sinResultadosExamenCategoria" class="text-center text-muted py-3" hidden>Ningún examen coincide con la búsqueda.</p>
             </div>
 
+            <?php if (!empty($examenesInactivos)): ?>
+                <div class="mt-4">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-toggle="collapse" data-target="#examenesEliminados" aria-expanded="false">
+                        <i class="fas fa-trash-restore"></i> Ver exámenes eliminados (<?= count($examenesInactivos) ?>)
+                    </button>
+                    <div class="collapse mt-2" id="examenesEliminados">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped" style="table-layout: fixed; width: 100%; min-width: 640px;">
+                                <colgroup>
+                                    <col style="width: 35%;">
+                                    <col style="width: 15%;">
+                                    <col style="width: 15%;">
+                                    <col style="width: 15%;">
+                                    <col style="width: 20%;">
+                                </colgroup>
+                                <thead class="bg-secondary text-white">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Muestra</th>
+                                        <th>Precio (S/)</th>
+                                        <th>Precio Convenio (S/)</th>
+                                        <th class="text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($examenesInactivos as $examen): ?>
+                                        <tr>
+                                            <td class="text-truncate" style="max-width: 0;" title="<?= h($examen->nombre) ?>"><?= h($examen->nombre) ?></td>
+                                            <td class="text-truncate" style="max-width: 0;"><?= h($examen->muestra ?: '-') ?></td>
+                                            <td><?= number_format((float)$examen->precio, 2) ?></td>
+                                            <td><?= number_format((float)$examen->precio_convenio, 2) ?></td>
+                                            <td class="text-center text-nowrap">
+                                                <?php if ($this->Permisos->tiene('Examenes', 'reactivar')): ?>
+                                                    <?= $this->Form->postLink(
+                                                        '<i class="fas fa-undo"></i> Reactivar',
+                                                        ['controller' => 'Examenes', 'action' => 'reactivar', $examen->id],
+                                                        ['escape' => false, 'title' => 'Reactivar', 'class' => 'btn btn-success btn-sm', 'confirm' => '¿Reactivar el examen "' . $examen->nombre . '"?']
+                                                    ) ?>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="text-center mt-4">
                 <?= $this->Html->link(__('Volver a la Lista'), ['action' => 'index'], ['class' => 'btn btn-secondary']) ?>
                 <?= $this->Html->link(__('Editar Categoría'), ['action' => 'edit', $categoriasExamene->id], ['class' => 'btn btn-primary ms-2']) ?>
@@ -112,7 +161,7 @@
     </div>
 </div>
 
-<?php if (!empty($categoriasExamene->examenes)): ?>
+<?php if (!empty($examenesActivos)): ?>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var input = document.getElementById('buscarExamenCategoria');

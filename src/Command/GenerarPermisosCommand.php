@@ -70,7 +70,7 @@ class GenerarPermisosCommand extends Command
             'VistaReportePacientes' => ['index'],
             'VistaConsultasProcedimientos' => ['index'],
             'VistaReporteProductos' => ['index'],
-            'Productos' => ['index', 'view', 'add', 'edit', 'delete'],
+            'Productos' => ['index', 'view', 'add', 'edit', 'delete', 'reactivar'],
             'CategoriasProductos' => ['index', 'view', 'add', 'edit', 'delete', 'reactivar'],
             'ProductoMovimientos' => ['add', 'historial'],
             'Categorias' => ['index'],
