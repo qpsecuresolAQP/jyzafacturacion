@@ -8,6 +8,7 @@ class ProductosController extends AppController
     public function index()
     {
         $stockFiltro = (string) $this->request->getQuery('stock', 'todos');
+        $searchTerm = trim((string) $this->request->getQuery('search', ''));
 
         $query = $this->Productos->find()
             ->contain(['CategoriasProductos', 'Proveedores'])
@@ -29,6 +30,15 @@ class ProductosController extends AppController
                 });
         }
 
+        if ($searchTerm !== '') {
+            $query->andWhere(function ($exp) use ($searchTerm) {
+                return $exp->or([
+                    'LOWER(Productos.nombre) LIKE' => '%' . strtolower($searchTerm) . '%',
+                    'LOWER(Productos.codigo) LIKE' => '%' . strtolower($searchTerm) . '%',
+                ]);
+            });
+        }
+
         $productos = $this->paginate($query);
 
         $stockCounts = [
@@ -37,7 +47,7 @@ class ProductosController extends AppController
         ];
         $stockCounts['normal'] = $this->Productos->find()->count() - $stockCounts['agotado'] - $stockCounts['bajo'];
 
-        $this->set(compact('productos', 'stockFiltro', 'stockCounts'));
+        $this->set(compact('productos', 'stockFiltro', 'stockCounts', 'searchTerm'));
     }
 
     /**

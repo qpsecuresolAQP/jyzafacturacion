@@ -2,16 +2,37 @@
 /**
  * @var \App\View\AppView $this
  * @var iterable<\App\Model\Entity\CategoriaProducto> $categoriasProductos
+ * @var string $searchTerm
  */
 ?>
 
 <?php $this->assign('title', 'Categorías de Productos'); ?>
 
 <div class="categorias-productos index content">
-    <!-- Botón Agregar (solo si tiene permiso) -->
-    <?php if ($this->Permisos->tiene('CategoriasProductos', 'add')): ?>
-        <?= $this->Html->link(__('Añadir Categoría'), ['action' => 'add'], ['class' => 'button float-right btn btn-info openModal']) ?>
-    <?php endif; ?>
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <?= $this->Form->create(null, ['type' => 'get', 'class' => 'd-flex gap-2']) ?>
+            <?= $this->Form->control('search', [
+                'label' => false,
+                'value' => $searchTerm,
+                'placeholder' => 'Buscar por nombre...',
+                'class' => 'form-control form-control-sm',
+                'templates' => ['inputContainer' => '{{content}}'],
+            ]) ?>
+            <button type="submit" class="btn btn-sm btn-outline-info"><i class="fas fa-search"></i></button>
+            <?php if ($searchTerm !== ''): ?>
+                <?= $this->Html->link('<i class="fas fa-times"></i>', ['action' => 'index'], [
+                    'escape' => false,
+                    'class' => 'btn btn-sm btn-outline-secondary',
+                    'title' => 'Limpiar búsqueda',
+                ]) ?>
+            <?php endif; ?>
+        <?= $this->Form->end() ?>
+
+        <!-- Botón Agregar (solo si tiene permiso) -->
+        <?php if ($this->Permisos->tiene('CategoriasProductos', 'add')): ?>
+            <?= $this->Html->link(__('Añadir Categoría'), ['action' => 'add'], ['class' => 'btn btn-info openModal']) ?>
+        <?php endif; ?>
+    </div>
 
     <div class="contenedor principal">
         <div class="table-responsive">

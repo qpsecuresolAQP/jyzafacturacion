@@ -7,11 +7,19 @@ class CategoriasProductosController extends AppController
 {
     public function index()
     {
-        $categoriasProductos = $this->paginate(
-            $this->CategoriasProductos->find()->order(['CategoriasProductos.id' => 'DESC'])
-        );
+        $searchTerm = trim((string) $this->request->getQuery('search', ''));
 
-        $this->set(compact('categoriasProductos'));
+        $query = $this->CategoriasProductos->find()->order(['CategoriasProductos.id' => 'DESC']);
+
+        if ($searchTerm !== '') {
+            $query->where([
+                'LOWER(CategoriasProductos.nombre) LIKE' => '%' . strtolower($searchTerm) . '%',
+            ]);
+        }
+
+        $categoriasProductos = $this->paginate($query);
+
+        $this->set(compact('categoriasProductos', 'searchTerm'));
     }
 
     public function view($id = null)

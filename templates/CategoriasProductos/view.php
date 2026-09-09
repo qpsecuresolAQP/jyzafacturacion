@@ -38,7 +38,17 @@
                 </div>
             </div>
 
-            <h5 class="text-info">Productos en esta categoría</h5>
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <h5 class="text-info mb-0">Productos en esta categoría</h5>
+                <?php if (!empty($categoriaProducto->productos)): ?>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="buscarProductoCategoria" class="form-control form-control-sm" placeholder="Buscar por nombre o código..." style="min-width: 240px;">
+                        <button type="button" id="limpiarBuscarProductoCategoria" class="btn btn-sm btn-outline-secondary" title="Limpiar búsqueda">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                <?php endif; ?>
+            </div>
             <div class="table-responsive">
                 <table class="table table-striped mt-2">
                     <thead class="bg-info text-white">
@@ -51,14 +61,14 @@
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="tablaProductosCategoria">
                         <?php if (empty($categoriaProducto->productos)): ?>
                             <tr>
                                 <td colspan="6" class="text-center text-muted">No hay productos registrados en esta categoría.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($categoriaProducto->productos as $producto): ?>
-                                <tr>
+                                <tr data-nombre="<?= h(mb_strtolower($producto->nombre)) ?>" data-codigo="<?= h(mb_strtolower((string)$producto->codigo)) ?>">
                                     <td><?= h($producto->nombre) ?></td>
                                     <td><?= h($producto->codigo ?: '-') ?></td>
                                     <td><?= number_format((float)$producto->precio, 2) ?></td>
@@ -97,6 +107,7 @@
                         <?php endif; ?>
                     </tbody>
                 </table>
+                <p id="sinResultadosProductoCategoria" class="text-center text-muted py-3" hidden>Ningún producto coincide con la búsqueda.</p>
             </div>
 
             <div class="text-center mt-4">
@@ -105,3 +116,36 @@
         </div>
     </div>
 </div>
+
+<?php if (!empty($categoriaProducto->productos)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var input = document.getElementById('buscarProductoCategoria');
+    var btnLimpiar = document.getElementById('limpiarBuscarProductoCategoria');
+    var filas = document.querySelectorAll('#tablaProductosCategoria tr[data-nombre]');
+    var sinResultados = document.getElementById('sinResultadosProductoCategoria');
+
+    function filtrar() {
+        var termino = input.value.trim().toLowerCase();
+        var visibles = 0;
+
+        filas.forEach(function (fila) {
+            var coincide = termino === ''
+                || fila.dataset.nombre.indexOf(termino) !== -1
+                || fila.dataset.codigo.indexOf(termino) !== -1;
+            fila.hidden = !coincide;
+            if (coincide) visibles++;
+        });
+
+        sinResultados.hidden = visibles !== 0;
+    }
+
+    input.addEventListener('input', filtrar);
+    btnLimpiar.addEventListener('click', function () {
+        input.value = '';
+        filtrar();
+        input.focus();
+    });
+});
+</script>
+<?php endif; ?>

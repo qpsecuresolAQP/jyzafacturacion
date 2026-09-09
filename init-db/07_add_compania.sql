@@ -20,7 +20,7 @@ INSERT INTO companies (
     'CAYCHO CABRERA & ASOCIADOS S.A.C.',
     'CONSULTORIO GINECOLÓGICO JYZA',
     'JR. 2 DE MAYO NRO. 1600',
-    NULL,
+    '100101',
     'HUANUCO',
     'HUANUCO',
     'HUANUCO',

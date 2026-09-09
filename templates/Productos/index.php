@@ -4,6 +4,7 @@
  * @var iterable<\App\Model\Entity\Producto> $productos
  * @var string $stockFiltro
  * @var array $stockCounts
+ * @var string $searchTerm
  */
 ?>
 
@@ -12,19 +13,38 @@
 <div class="productos index content">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="btn-group" role="group">
-            <?= $this->Html->link('Todos', ['action' => 'index'], [
+            <?= $this->Html->link('Todos', ['action' => 'index', '?' => ['search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($stockFiltro === 'todos' ? 'btn-info' : 'btn-outline-info'),
             ]) ?>
-            <?= $this->Html->link('Normal (' . $stockCounts['normal'] . ')', ['action' => 'index', '?' => ['stock' => 'normal']], [
+            <?= $this->Html->link('Normal (' . $stockCounts['normal'] . ')', ['action' => 'index', '?' => ['stock' => 'normal', 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($stockFiltro === 'normal' ? 'btn-success' : 'btn-outline-success'),
             ]) ?>
-            <?= $this->Html->link('Bajo (' . $stockCounts['bajo'] . ')', ['action' => 'index', '?' => ['stock' => 'bajo']], [
+            <?= $this->Html->link('Bajo (' . $stockCounts['bajo'] . ')', ['action' => 'index', '?' => ['stock' => 'bajo', 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($stockFiltro === 'bajo' ? 'btn-warning' : 'btn-outline-warning'),
             ]) ?>
-            <?= $this->Html->link('Agotado (' . $stockCounts['agotado'] . ')', ['action' => 'index', '?' => ['stock' => 'agotado']], [
+            <?= $this->Html->link('Agotado (' . $stockCounts['agotado'] . ')', ['action' => 'index', '?' => ['stock' => 'agotado', 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($stockFiltro === 'agotado' ? 'btn-danger' : 'btn-outline-danger'),
             ]) ?>
         </div>
+
+        <?= $this->Form->create(null, ['type' => 'get', 'class' => 'd-flex gap-2']) ?>
+            <?= $this->Form->hidden('stock', ['value' => $stockFiltro]) ?>
+            <?= $this->Form->control('search', [
+                'label' => false,
+                'value' => $searchTerm,
+                'placeholder' => 'Buscar por nombre o código...',
+                'class' => 'form-control form-control-sm',
+                'templates' => ['inputContainer' => '{{content}}'],
+            ]) ?>
+            <button type="submit" class="btn btn-sm btn-outline-info"><i class="fas fa-search"></i></button>
+            <?php if ($searchTerm !== ''): ?>
+                <?= $this->Html->link('<i class="fas fa-times"></i>', ['action' => 'index', '?' => ['stock' => $stockFiltro]], [
+                    'escape' => false,
+                    'class' => 'btn btn-sm btn-outline-secondary',
+                    'title' => 'Limpiar búsqueda',
+                ]) ?>
+            <?php endif; ?>
+        <?= $this->Form->end() ?>
 
         <!-- Botón Agregar (solo si tiene permiso) -->
         <?php if ($this->Permisos->tiene('Productos', 'add')): ?>
