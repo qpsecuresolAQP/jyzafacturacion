@@ -9,10 +9,18 @@ class ProductosController extends AppController
     {
         $stockFiltro = (string) $this->request->getQuery('stock', 'todos');
         $searchTerm = trim((string) $this->request->getQuery('search', ''));
+        $estadoFiltro = (string) $this->request->getQuery('estado', 'activos');
 
         $query = $this->Productos->find()
             ->contain(['CategoriasProductos', 'Proveedores'])
             ->order(['Productos.id' => 'DESC']);
+
+        if ($estadoFiltro === 'activos') {
+            $query->where(['Productos.estado' => 1]);
+        } elseif ($estadoFiltro === 'inactivos') {
+            $query->where(['Productos.estado' => 0]);
+        }
+        // 'todos' no aplica filtro
 
         if ($stockFiltro === 'agotado') {
             $query->where(['Productos.stock <=' => 0]);
@@ -47,7 +55,7 @@ class ProductosController extends AppController
         ];
         $stockCounts['normal'] = $this->Productos->find()->count() - $stockCounts['agotado'] - $stockCounts['bajo'];
 
-        $this->set(compact('productos', 'stockFiltro', 'stockCounts', 'searchTerm'));
+        $this->set(compact('productos', 'stockFiltro', 'stockCounts', 'searchTerm', 'estadoFiltro'));
     }
 
     /**

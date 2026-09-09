@@ -5,6 +5,7 @@
  * @var string $stockFiltro
  * @var array $stockCounts
  * @var string $searchTerm
+ * @var string $estadoFiltro
  */
 ?>
 
@@ -13,22 +14,35 @@
 <div class="productos index content">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="btn-group" role="group">
-            <?= $this->Html->link('Todos', ['action' => 'index', '?' => ['search' => $searchTerm]], [
+            <?= $this->Html->link('Activos', ['action' => 'index', '?' => ['estado' => 'activos', 'stock' => $stockFiltro, 'search' => $searchTerm]], [
+                'class' => 'btn btn-sm ' . ($estadoFiltro === 'activos' ? 'btn-info' : 'btn-outline-info'),
+            ]) ?>
+            <?= $this->Html->link('Inactivos', ['action' => 'index', '?' => ['estado' => 'inactivos', 'stock' => $stockFiltro, 'search' => $searchTerm]], [
+                'class' => 'btn btn-sm ' . ($estadoFiltro === 'inactivos' ? 'btn-info' : 'btn-outline-info'),
+            ]) ?>
+            <?= $this->Html->link('Todos', ['action' => 'index', '?' => ['estado' => 'todos', 'stock' => $stockFiltro, 'search' => $searchTerm]], [
+                'class' => 'btn btn-sm ' . ($estadoFiltro === 'todos' ? 'btn-info' : 'btn-outline-info'),
+            ]) ?>
+        </div>
+
+        <div class="btn-group" role="group">
+            <?= $this->Html->link('Todos', ['action' => 'index', '?' => ['estado' => $estadoFiltro, 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($stockFiltro === 'todos' ? 'btn-info' : 'btn-outline-info'),
             ]) ?>
-            <?= $this->Html->link('Normal (' . $stockCounts['normal'] . ')', ['action' => 'index', '?' => ['stock' => 'normal', 'search' => $searchTerm]], [
+            <?= $this->Html->link('Normal (' . $stockCounts['normal'] . ')', ['action' => 'index', '?' => ['stock' => 'normal', 'estado' => $estadoFiltro, 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($stockFiltro === 'normal' ? 'btn-success' : 'btn-outline-success'),
             ]) ?>
-            <?= $this->Html->link('Bajo (' . $stockCounts['bajo'] . ')', ['action' => 'index', '?' => ['stock' => 'bajo', 'search' => $searchTerm]], [
+            <?= $this->Html->link('Bajo (' . $stockCounts['bajo'] . ')', ['action' => 'index', '?' => ['stock' => 'bajo', 'estado' => $estadoFiltro, 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($stockFiltro === 'bajo' ? 'btn-warning' : 'btn-outline-warning'),
             ]) ?>
-            <?= $this->Html->link('Agotado (' . $stockCounts['agotado'] . ')', ['action' => 'index', '?' => ['stock' => 'agotado', 'search' => $searchTerm]], [
+            <?= $this->Html->link('Agotado (' . $stockCounts['agotado'] . ')', ['action' => 'index', '?' => ['stock' => 'agotado', 'estado' => $estadoFiltro, 'search' => $searchTerm]], [
                 'class' => 'btn btn-sm ' . ($stockFiltro === 'agotado' ? 'btn-danger' : 'btn-outline-danger'),
             ]) ?>
         </div>
 
         <?= $this->Form->create(null, ['type' => 'get', 'class' => 'd-flex gap-2']) ?>
             <?= $this->Form->hidden('stock', ['value' => $stockFiltro]) ?>
+            <?= $this->Form->hidden('estado', ['value' => $estadoFiltro]) ?>
             <?= $this->Form->control('search', [
                 'label' => false,
                 'value' => $searchTerm,
@@ -38,7 +52,7 @@
             ]) ?>
             <button type="submit" class="btn btn-sm btn-outline-info"><i class="fas fa-search"></i></button>
             <?php if ($searchTerm !== ''): ?>
-                <?= $this->Html->link('<i class="fas fa-times"></i>', ['action' => 'index', '?' => ['stock' => $stockFiltro]], [
+                <?= $this->Html->link('<i class="fas fa-times"></i>', ['action' => 'index', '?' => ['stock' => $stockFiltro, 'estado' => $estadoFiltro]], [
                     'escape' => false,
                     'class' => 'btn btn-sm btn-outline-secondary',
                     'title' => 'Limpiar búsqueda',
@@ -165,12 +179,20 @@
                                 ) ?>
                             <?php endif; ?>
 
-                            <!-- Desactivar (solo si tiene permiso y sigue activo) -->
-                            <?php if ($this->Permisos->tiene('Productos', 'delete') && (int)$producto->estado === 1): ?>
+                            <!-- Desactivar/Reactivar (solo si tiene permiso) -->
+                            <?php if ((int)$producto->estado === 1): ?>
+                                <?php if ($this->Permisos->tiene('Productos', 'delete')): ?>
+                                    <?= $this->Form->postLink(
+                                        '<i class="fas fa-times"></i>',
+                                        ['action' => 'delete', $producto->id],
+                                        ['escape' => false, 'title' => 'Desactivar', 'class' => 'btn btn-danger btn-sm', 'confirm' => '¿Estás seguro? El producto "' . $producto->nombre . '" será desactivado.']
+                                    ) ?>
+                                <?php endif; ?>
+                            <?php elseif ($this->Permisos->tiene('Productos', 'reactivar')): ?>
                                 <?= $this->Form->postLink(
-                                    '<i class="fas fa-times"></i>',
-                                    ['action' => 'delete', $producto->id],
-                                    ['escape' => false, 'title' => 'Desactivar', 'class' => 'btn btn-danger btn-sm', 'confirm' => '¿Estás seguro? El producto "' . $producto->nombre . '" será desactivado.']
+                                    '<i class="fas fa-check"></i>',
+                                    ['action' => 'reactivar', $producto->id],
+                                    ['escape' => false, 'title' => 'Reactivar', 'class' => 'btn btn-success btn-sm', 'confirm' => '¿Reactivar el producto "' . $producto->nombre . '"?']
                                 ) ?>
                             <?php endif; ?>
                         </td>
