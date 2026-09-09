@@ -47,7 +47,7 @@
                                     <td><?= $this->Number->format($mov->cantidad) ?></td>
                                     <td><?= $this->Number->format($mov->stock_anterior) ?></td>
                                     <td><?= $this->Number->format($mov->stock_nuevo) ?></td>
-                                    <td><?= h($mov->motivo) ?></td>
+                                    <td><?= $mov->motivo ? h($mov->motivo) : '<span class="text-muted">-</span>' ?></td>
                                     <td><?= h($mov->user->username ?? '-') ?></td>
                                 </tr>
                             <?php endforeach; ?>

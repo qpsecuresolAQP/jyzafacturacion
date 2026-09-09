@@ -43,8 +43,7 @@ class ProductoMovimientosTable extends Table
         $validator
             ->scalar('motivo')
             ->maxLength('motivo', 255)
-            ->requirePresence('motivo', 'create')
-            ->notEmptyString('motivo', 'Indica el motivo del movimiento.');
+            ->allowEmptyString('motivo', null);
 
         return $validator;
     }

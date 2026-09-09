@@ -32,8 +32,8 @@
             </div>
 
             <div class="col-12 mb-3">
-                <label class="form-label fw-semibold">Motivo</label>
-                <textarea name="motivo" class="form-control" rows="2" placeholder="Ejemplo: Compra a proveedor, producto vencido, ajuste de conteo físico..." required></textarea>
+                <label class="form-label fw-semibold">Motivo <span class="text-muted fw-normal">(opcional)</span></label>
+                <textarea name="motivo" class="form-control" rows="2" placeholder="Ejemplo: Compra a proveedor, producto vencido, ajuste de conteo físico..."></textarea>
             </div>
 
             <div class="col-12 text-center">
