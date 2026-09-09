@@ -101,6 +101,13 @@
                                                 ['escape' => false, 'title' => 'Historial de Movimientos', 'class' => 'btn btn-secondary btn-sm openModal']
                                             ) ?>
                                         <?php endif; ?>
+                                        <?php if ($this->Permisos->tiene('Productos', 'delete')): ?>
+                                            <?= $this->Form->postLink(
+                                                '<i class="fas fa-trash"></i>',
+                                                ['controller' => 'Productos', 'action' => 'delete', $producto->id],
+                                                ['escape' => false, 'title' => 'Eliminar', 'class' => 'btn btn-danger btn-sm', 'confirm' => '¿Estás seguro? El producto "' . $producto->nombre . '" será eliminado de esta categoría.']
+                                            ) ?>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

@@ -71,7 +71,7 @@ class GenerarPermisosCommand extends Command
             'VistaConsultasProcedimientos' => ['index'],
             'VistaReporteProductos' => ['index'],
             'Productos' => ['index', 'view', 'add', 'edit', 'delete'],
-            'CategoriasProductos' => ['index', 'view', 'add', 'edit', 'delete'],
+            'CategoriasProductos' => ['index', 'view', 'add', 'edit', 'delete', 'reactivar'],
             'ProductoMovimientos' => ['add', 'historial'],
             'Categorias' => ['index'],
             'Proveedores' => ['index'],

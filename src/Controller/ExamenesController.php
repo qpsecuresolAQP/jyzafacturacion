@@ -147,6 +147,7 @@ class ExamenesController extends AppController
     {
         $this->request->allowMethod(['post', 'delete']);
         $examene = $this->Examenes->get($id);
+        $categoriaExamenId = $examene->categoria_examen_id;
 
         // Eliminación lógica: solo se desactiva, no se borra el registro
         // (queda referenciado por facturas ya emitidas vía invoice_items.examen_id).
@@ -156,6 +157,17 @@ class ExamenesController extends AppController
             $this->Flash->success(__('Examen desactivado correctamente.'));
         } else {
             $this->Flash->error(__('No se pudo desactivar el examen.'));
+        }
+
+        // Si se llegó desde la vista de una categoría, volver ahí en vez del
+        // índice general, para que el usuario vea el resultado en el mismo lugar.
+        $referer = $this->request->referer();
+        if ($referer && str_contains($referer, '/categorias-examenes/view/')) {
+            return $this->redirect([
+                'controller' => 'CategoriasExamenes',
+                'action' => 'view',
+                $categoriaExamenId,
+            ]);
         }
 
         return $this->redirect(['action' => 'index']);

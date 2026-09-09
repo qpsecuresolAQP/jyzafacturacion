@@ -46,7 +46,12 @@ class CategoriasExamenesController extends AppController
 
     public function view($id = null)
     {
-        $categoriasExamene = $this->CategoriasExamenes->get($id, contain: ['Examenes']);
+        $categoriasExamene = $this->CategoriasExamenes->get($id, contain: [
+            'Examenes' => function ($q) {
+                return $q->where(['Examenes.estado' => 1])
+                    ->order(['Examenes.nombre' => 'ASC']);
+            },
+        ]);
         $this->set(compact('categoriasExamene'));
         // Usar un layout diferenciado para solicitudes normales o AJAX
         if ($this->request->is('ajax')) {

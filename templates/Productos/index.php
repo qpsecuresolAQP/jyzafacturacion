@@ -147,19 +147,12 @@
                                 ) ?>
                             <?php endif; ?>
 
-                            <!-- Activar/Inactivar (solo si tiene permiso) -->
-                            <?php if ($this->Permisos->tiene('Productos', 'toggleStatus')): ?>
-                                <?php
-                                    $activo      = (int)$producto->estado === 1;
-                                    $buttonText  = $activo ? '<i class="fas fa-times"></i>' : '<i class="fas fa-check"></i>';
-                                    $buttonClass = $activo ? 'btn btn-danger' : 'btn btn-success';
-                                    $buttonTitle = $activo ? 'Inactivar' : 'Activar';
-                                    $confirmMsg  = '¿Estás seguro? El producto será ' . ($activo ? 'inactivado' : 'activado');
-                                ?>
-                                <?= $this->Html->link(
-                                    $buttonText,
-                                    ['action' => 'toggleStatus', $producto->id],
-                                    ['escape' => false, 'title' => $buttonTitle, 'class' => $buttonClass . ' btn-sm', 'confirm' => $confirmMsg]
+                            <!-- Desactivar (solo si tiene permiso y sigue activo) -->
+                            <?php if ($this->Permisos->tiene('Productos', 'delete') && (int)$producto->estado === 1): ?>
+                                <?= $this->Form->postLink(
+                                    '<i class="fas fa-times"></i>',
+                                    ['action' => 'delete', $producto->id],
+                                    ['escape' => false, 'title' => 'Desactivar', 'class' => 'btn btn-danger btn-sm', 'confirm' => '¿Estás seguro? El producto "' . $producto->nombre . '" será desactivado.']
                                 ) ?>
                             <?php endif; ?>
                         </td>

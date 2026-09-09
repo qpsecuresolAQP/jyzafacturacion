@@ -80,6 +80,13 @@
                                                 ['escape' => false, 'title' => 'Editar', 'class' => 'btn btn-warning btn-sm openModal']
                                             ) ?>
                                         <?php endif; ?>
+                                        <?php if ($this->Permisos->tiene('Examenes', 'delete')): ?>
+                                            <?= $this->Form->postLink(
+                                                '<i class="fas fa-trash"></i>',
+                                                ['controller' => 'Examenes', 'action' => 'delete', $examen->id],
+                                                ['escape' => false, 'title' => 'Eliminar', 'class' => 'btn btn-danger btn-sm', 'confirm' => '¿Estás seguro? El examen "' . $examen->nombre . '" será eliminado de esta categoría.']
+                                            ) ?>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

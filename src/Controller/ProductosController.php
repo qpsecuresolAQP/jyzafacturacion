@@ -162,6 +162,7 @@ class ProductosController extends AppController
         $this->request->allowMethod(['post', 'delete']);
 
         $producto = $this->Productos->get($id);
+        $categoriaProductoId = $producto->categoria_producto_id;
 
         if ($this->Productos->save(
             $this->Productos->patchEntity($producto, ['estado' => 0])
@@ -169,6 +170,17 @@ class ProductosController extends AppController
             $this->Flash->success('El producto fue desactivado correctamente.');
         } else {
             $this->Flash->error('No se pudo desactivar el producto.');
+        }
+
+        // Si se llegó desde la vista de una categoría, volver ahí en vez del
+        // índice general, para que el usuario vea el resultado en el mismo lugar.
+        $referer = $this->request->referer();
+        if ($referer && str_contains($referer, '/categorias-productos/view/')) {
+            return $this->redirect([
+                'controller' => 'CategoriasProductos',
+                'action' => 'view',
+                $categoriaProductoId,
+            ]);
         }
 
         return $this->redirect(['action' => 'index']);

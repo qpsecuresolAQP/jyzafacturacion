@@ -81,18 +81,18 @@
                             <?php endif; ?>
 
                             <!-- Activar/Inactivar (solo si tiene permiso) -->
-                            <?php if ($this->Permisos->tiene('CategoriasProductos', 'delete')): ?>
-                                <?php
-                                    $activo       = (int)$categoria->estado === 1;
-                                    $buttonText   = $activo ? '<i class="fas fa-times"></i>' : '<i class="fas fa-check"></i>';
-                                    $buttonClass  = $activo ? 'btn btn-danger' : 'btn btn-success';
-                                    $buttonTitle  = $activo ? 'Inactivar' : 'Activar';
-                                    $confirmMsg   = '¿Estás seguro? La categoría será ' . ($activo ? 'inactivada' : 'activada');
-                                ?>
-                                <?= $this->Html->link(
-                                    $buttonText,
+                            <?php $activo = (int)$categoria->estado === 1; ?>
+                            <?php if ($activo && $this->Permisos->tiene('CategoriasProductos', 'delete')): ?>
+                                <?= $this->Form->postLink(
+                                    '<i class="fas fa-times"></i>',
                                     ['action' => 'delete', $categoria->id],
-                                    ['escape' => false, 'title' => $buttonTitle, 'class' => $buttonClass . ' btn-sm', 'confirm' => $confirmMsg]
+                                    ['escape' => false, 'title' => 'Inactivar', 'class' => 'btn btn-danger btn-sm', 'confirm' => '¿Estás seguro? La categoría será inactivada']
+                                ) ?>
+                            <?php elseif (!$activo && $this->Permisos->tiene('CategoriasProductos', 'reactivar')): ?>
+                                <?= $this->Form->postLink(
+                                    '<i class="fas fa-check"></i>',
+                                    ['action' => 'reactivar', $categoria->id],
+                                    ['escape' => false, 'title' => 'Activar', 'class' => 'btn btn-success btn-sm', 'confirm' => '¿Estás seguro? La categoría será activada']
                                 ) ?>
                             <?php endif; ?>
                         </td>

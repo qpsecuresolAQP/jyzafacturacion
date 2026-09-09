@@ -26,7 +26,8 @@ class CategoriasProductosController extends AppController
     {
         $categoriaProducto = $this->CategoriasProductos->get($id, contain: [
             'Productos' => function ($q) {
-                return $q->order(['Productos.nombre' => 'ASC']);
+                return $q->where(['Productos.estado' => 1])
+                    ->order(['Productos.nombre' => 'ASC']);
             },
         ]);
 
@@ -105,6 +106,26 @@ class CategoriasProductosController extends AppController
             $this->Flash->success('La categoría fue desactivada correctamente.');
         } else {
             $this->Flash->error('No se pudo desactivar la categoría.');
+        }
+
+        return $this->redirect(['action' => 'index']);
+    }
+
+    /**
+     * Reactiva una categoría de producto previamente desactivada.
+     */
+    public function reactivar($id = null)
+    {
+        $this->request->allowMethod(['post']);
+
+        $categoriaProducto = $this->CategoriasProductos->get($id);
+
+        if ($this->CategoriasProductos->save(
+            $this->CategoriasProductos->patchEntity($categoriaProducto, ['estado' => 1])
+        )) {
+            $this->Flash->success('La categoría fue reactivada correctamente.');
+        } else {
+            $this->Flash->error('No se pudo reactivar la categoría.');
         }
 
         return $this->redirect(['action' => 'index']);
