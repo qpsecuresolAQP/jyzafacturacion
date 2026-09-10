@@ -250,6 +250,7 @@
                     ['controller' => 'Proveedores', 'action' => 'index'],
                     ['controller' => 'Transacciones', 'action' => 'index'],
                     ['controller' => 'PanelInventario', 'action' => 'index'],
+                    ['controller' => 'IngresosMercaderia', 'action' => 'index'],
                 ])): ?>
                 <li class="nav-item">
                     <a href="#" class="nav-link">
@@ -265,6 +266,22 @@
                             <a href="<?= $this->Url->build(['controller' => 'PanelInventario', 'action' => 'index']) ?>" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>Panel de Inventario</p>
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if ($this->Permisos->tiene('IngresosMercaderia', 'index')): ?>
+                        <li class="nav-item">
+                            <a href="<?= $this->Url->build(['controller' => 'IngresosMercaderia', 'action' => 'index']) ?>" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Ingreso de Mercadería</p>
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if ($this->Permisos->tiene('IngresosMercaderia', 'vencimientos')): ?>
+                        <li class="nav-item">
+                            <a href="<?= $this->Url->build(['controller' => 'IngresosMercaderia', 'action' => 'vencimientos']) ?>" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Vencimientos</p>
                             </a>
                         </li>
                         <?php endif; ?>

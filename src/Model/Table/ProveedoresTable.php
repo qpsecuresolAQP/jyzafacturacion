@@ -21,6 +21,10 @@ class ProveedoresTable extends Table
         $this->hasMany('Productos', [
             'foreignKey' => 'proveedor_id',
         ]);
+
+        $this->hasMany('IngresosMercaderia', [
+            'foreignKey' => 'proveedor_id',
+        ]);
     }
 
     public function validationDefault(Validator $validator): Validator
@@ -30,6 +34,23 @@ class ProveedoresTable extends Table
             ->maxLength('nombre', 150)
             ->requirePresence('nombre', 'create')
             ->notEmptyString('nombre');
+
+        $validator
+            ->scalar('ruc')
+            ->maxLength('ruc', 11)
+            ->add('ruc', 'validFormat', [
+                'rule' => ['custom', '/^\d{11}$/'],
+                'message' => 'El RUC debe tener 11 dígitos.',
+                'on' => function ($context) {
+                    return !empty($context['data']['ruc']);
+                },
+            ])
+            ->allowEmptyString('ruc');
+
+        $validator
+            ->scalar('direccion')
+            ->maxLength('direccion', 255)
+            ->allowEmptyString('direccion');
 
         $validator
             ->scalar('whatsapp')

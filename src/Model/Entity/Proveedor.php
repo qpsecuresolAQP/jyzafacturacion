@@ -9,6 +9,8 @@ class Proveedor extends Entity
 {
     protected array $_accessible = [
         'nombre' => true,
+        'ruc' => true,
+        'direccion' => true,
         'whatsapp' => true,
         'email' => true,
         'activo' => true,

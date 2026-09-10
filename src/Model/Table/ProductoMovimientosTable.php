@@ -25,6 +25,10 @@ class ProductoMovimientosTable extends Table
         $this->belongsTo('Users', [
             'foreignKey' => 'usuario_id',
         ]);
+
+        $this->belongsTo('IngresosMercaderia', [
+            'foreignKey' => 'ingreso_mercaderia_id',
+        ]);
     }
 
     public function validationDefault(Validator $validator): Validator

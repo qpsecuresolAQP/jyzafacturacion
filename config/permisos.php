@@ -30,6 +30,7 @@ return [
 
         'Medicamentos' => ['buscar'],
         'Examenes' => ['buscar'],
+        'IngresosMercaderia' => ['buscarProducto'],
         'RecetasMedicamentos' => ['buscarMedicamentos'],
         'Recetas' => ['getByConsulta'],
         'Consultas' => ['buscarCie', 'exportConsultasPdf'],
@@ -73,6 +74,7 @@ return [
         'HistoriasClinicas' => [],
         'HorariosBloqueos' => [],
         'HorariosDoctores' => [],
+        'IngresosMercaderia' => [],
         'Medicamentos' => [],
         'PaquetesPagos' => [],
         'RecordatorioControles' => [],

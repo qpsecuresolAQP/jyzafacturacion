@@ -75,6 +75,7 @@ class GenerarPermisosCommand extends Command
             'ProductoMovimientos' => ['add', 'historial'],
             'Categorias' => ['index'],
             'Proveedores' => ['index'],
+            'IngresosMercaderia' => ['index', 'view', 'add', 'anular', 'vencimientos'],
             'Transacciones' => ['index'],
             'RolesPermisos' => ['index', 'add', 'delete','createWithDefaults'],
             'UsuariosPermisos' => ['index', 'add', 'edit', 'delete'],
