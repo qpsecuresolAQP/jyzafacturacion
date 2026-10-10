@@ -48,7 +48,7 @@
         </a>
         <a href="<?= $this->Url->build(['action' => 'index', '?' => ['tipo' => 'RI']]) ?>"
         class="btn btn-sm <?= $this->request->getQuery('tipo') === 'RI' ? 'btn-dark' : 'btn-outline-dark' ?>">
-            Recibos Internos
+            Notas de Venta
         </a>
         <a href="<?= $this->Url->build(['action' => 'index', '?' => ['tipo' => '03']]) ?>"
         class="btn btn-sm <?= $this->request->getQuery('tipo') === '03' ? 'btn-warning' : 'btn-outline-warning' ?>">
@@ -191,7 +191,7 @@
                         } elseif ($inv->tipo_doc === '03') {
                             echo '<span class="badge bg-warning text-dark">Boleta</span>';
                         } else {
-                            echo '<span class="badge bg-dark">Recibo Interno</span>';
+                            echo '<span class="badge bg-dark">Nota de Venta</span>';
                         }
                         ?>
                     </td>
@@ -332,7 +332,7 @@
                             </a>
                             <a href="<?= $this->Url->build(['action' => 'anularReciboInterno', $inv->id]) ?>"
                             class="btn btn-danger btn-sm"
-                            onclick="return confirm('¿Anular Recibo Interno #<?= $inv->correlativo ?>?\n\n⚠️ Recuerda registrar el EGRESO en Caja.')">
+                            onclick="return confirm('¿Anular Nota de Venta #<?= $inv->correlativo ?>?\n\n⚠️ Recuerda registrar el EGRESO en Caja.')">
                                 <i class="fas fa-trash"></i>
                             </a>
                         <?php endif; ?>

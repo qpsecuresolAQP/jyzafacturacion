@@ -87,7 +87,7 @@
                 elseif ($tipo === 'FACTURA'):
                     echo 'Facturas (Tipo 01)';
                 elseif ($tipo === 'RI'):
-                    echo 'Recibos Internos';
+                    echo 'Notas de Venta';
                 else:
                     echo 'Todos los Comprobantes';
                 endif;
@@ -139,7 +139,7 @@
         <tbody>
             <?php foreach ($invoices as $inv): ?>
                 <?php 
-                    $tipo_label = $inv->tipo_doc === '01' ? 'Factura' : ($inv->tipo_doc === '03' ? 'Boleta' : 'Recibo');
+                    $tipo_label = $inv->tipo_doc === '01' ? 'Factura' : ($inv->tipo_doc === '03' ? 'Boleta' : 'Nota de Venta');
                     $total = number_format((float)$inv->total, 2);
                     $serie = $inv->serie ?: 'RI';
                     $numero = $inv->correlativo ?: $inv->id;

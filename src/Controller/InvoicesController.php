@@ -1152,7 +1152,7 @@ if ($this->request->getQuery('sin_doctor') === '1') {
             // ✅ FLUJO AUTOMÁTICO SEGÚN TIPO
             if ($tipoDoc === 'RI') {
                 // Recibo Interno: no va a SUNAT, ir directo a la vista
-                $this->Flash->success('Recibo Interno creado correctamente.');
+                $this->Flash->success('Nota de Venta creada correctamente.');
                 return $this->redirect(['action' => 'view', $invoice->id]);
             }
 
@@ -3153,11 +3153,11 @@ public function transformarABoleta($id)
         ]);
 
         if (!$this->Invoices->save($invoice)) {
-            $this->Flash->error('No se pudo transformar el Recibo Interno en Boleta.');
+            $this->Flash->error('No se pudo transformar la Nota de Venta en Boleta.');
             return $this->redirect(['action' => 'view', $id]);
         }
 
-        $this->Flash->success('Recibo Interno convertido a Boleta ' . $serie . '-' . $correlativo . '. Enviando al Resumen Diario...');
+        $this->Flash->success('Nota de Venta convertida a Boleta ' . $serie . '-' . $correlativo . '. Enviando al Resumen Diario...');
         return $this->redirect(['action' => 'emitir', $invoice->id]);
     }
 
@@ -3189,13 +3189,13 @@ public function anularReciboInterno($id)
     $invoice->descripcion_sunat = 'ANULADO INTERNAMENTE';
 
     if (!$this->Invoices->save($invoice)) {
-        $this->Flash->error('No se pudo anular el Recibo Interno.');
+        $this->Flash->error('No se pudo anular la Nota de Venta.');
         return $this->redirect(['action' => 'view', $id]);
     }
 
     $this->registrarEgresoAnulacion($invoice, 'REEMBOLSO ANULACIÓN RI');
     $this->devolverStockAnulacion($invoice);
-    $this->Flash->success('Recibo Interno #' . $invoice->correlativo . ' anulado y reembolso registrado en caja.');
+    $this->Flash->success('Nota de Venta #' . $invoice->correlativo . ' anulada y reembolso registrado en caja.');
     return $this->redirect(['action' => 'index']);
 }
 

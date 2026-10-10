@@ -288,7 +288,7 @@
         <div class="card-header bg-secondary text-white">
             <h5 class="mb-0">
                 <i class="fas fa-file-alt"></i>
-                Recibos Internos anulables
+                Notas de Venta anulables
             </h5>
         </div>
 
@@ -309,7 +309,7 @@
                                         <?= h($r->serie . '-' . $r->correlativo) ?>
                                 </strong>
                                 <span class="badge bg-secondary">
-                                    RECIBO INTERNO
+                                    NOTA DE VENTA
                                 </span>
                             </div>
 
@@ -335,9 +335,9 @@
                                     $r->id
                                 ]) ?>"
                                 class="btn btn-secondary w-100"
-                                onclick="return confirm('¿Seguro de anular este RECIBO INTERNO?\n\nSe registrará automáticamente el reembolso en Caja.')">
+                                onclick="return confirm('¿Seguro de anular esta NOTA DE VENTA?\n\nSe registrará automáticamente el reembolso en Caja.')">
                                     <i class="fas fa-trash"></i>
-                                    Anular Recibo Interno
+                                    Anular Nota de Venta
                                 </a>
                             </div>
 
@@ -352,7 +352,7 @@
             <?php else: ?>
 
                 <div class="alert alert-secondary mb-0">
-                    No hay Recibos Internos anulables.
+                    No hay Notas de Venta anulables.
                 </div>
 
             <?php endif; ?>

@@ -6,7 +6,7 @@
             <div class="card shadow border-0 mb-5">
                 <div class="card-header bg-info">
                     <h4 class="text-white mb-0 fw-bold">
-                        <i class="fas fa-receipt me-2"></i>Nuevo Comprobante / Recibo Interno
+                        <i class="fas fa-receipt me-2"></i>Nuevo Comprobante / Nota de Venta
                     </h4>
                 </div>
 
@@ -79,7 +79,7 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Tipo Documento</label>
                                         <select name="tipo_doc" id="tipo_doc" class="form-select form-select-solid" required>
-                                            <option value="RI">Recibo Interno</option>
+                                            <option value="RI">Nota de Venta</option>
                                             <option value="03" selected>Boleta</option>
                                             <option value="01">Factura</option>
                                         </select>

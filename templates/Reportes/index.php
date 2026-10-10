@@ -34,7 +34,7 @@ $queryParams = [
                         <option value="ALL" <?= ($tipo === 'ALL') ? 'selected' : '' ?>>Todo</option>
                         <option value="BOLETA" <?= ($tipo === 'BOLETA') ? 'selected' : '' ?>>Boletas</option>
                         <option value="FACTURA" <?= ($tipo === 'FACTURA') ? 'selected' : '' ?>>Facturas</option>
-                        <option value="RI" <?= ($tipo === 'RI') ? 'selected' : '' ?>>Recibos</option>
+                        <option value="RI" <?= ($tipo === 'RI') ? 'selected' : '' ?>>Notas de Venta</option>
                     </select>
                 </div>
 
@@ -79,7 +79,7 @@ $queryParams = [
         <div class="col-md-3">
             <div class="card border-warning">
                 <div class="card-body text-center">
-                    <h6>Recibos</h6>
+                    <h6>Notas de Venta</h6>
                     <h4><?= $totalRecibos ?></h4>
                 </div>
             </div>
@@ -150,7 +150,7 @@ $queryParams = [
                     <td><strong><?= h($inv->correlativo ?: $inv->id) ?></strong></td>
 
                     <td>
-                        <?= $inv->tipo_doc === '01' ? 'Factura' : ($inv->tipo_doc === '03' ? 'Boleta' : 'Recibo') ?>
+                        <?= $inv->tipo_doc === '01' ? 'Factura' : ($inv->tipo_doc === '03' ? 'Boleta' : 'Nota de Venta') ?>
                     </td>
 
                     <td><?= h($inv->cliente_nombre) ?></td>

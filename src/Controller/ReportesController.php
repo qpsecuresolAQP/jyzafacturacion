@@ -285,7 +285,7 @@ class ReportesController extends AppController
         $totalPorTipo = [];
 
         foreach ($invoices as $inv) {
-            $tipo_label = $inv->tipo_doc === '01' ? 'Factura' : ($inv->tipo_doc === '03' ? 'Boleta' : 'Recibo');
+            $tipo_label = $inv->tipo_doc === '01' ? 'Factura' : ($inv->tipo_doc === '03' ? 'Boleta' : 'Nota de Venta');
             
             // Contar por tipo
             if (!isset($totalPorTipo[$tipo_label])) {

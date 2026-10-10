@@ -7,10 +7,10 @@
 ?>
 <div class="container-fluid px-4 py-3">
     <div class="mb-4">
-        <h3 class="text-info mb-2"><i class="fas fa-exchange-alt"></i> Convertir Recibo Interno a Boleta</h3>
+        <h3 class="text-info mb-2"><i class="fas fa-exchange-alt"></i> Convertir Nota de Venta a Boleta</h3>
         <div class="bg-light border rounded p-3 d-flex flex-wrap gap-4">
             <div>
-                <div class="text-muted small">Recibo Interno</div>
+                <div class="text-muted small">Nota de Venta</div>
                 <div class="fw-semibold"><?= h($invoice->serie . '-' . $invoice->correlativo) ?></div>
             </div>
             <div>
@@ -20,7 +20,7 @@
         </div>
         <p class="text-muted small mt-2 mb-0">
             Se emitirá una Boleta con nueva serie/correlativo (B001). No se afecta caja ni stock,
-            ya quedaron registrados cuando se cobró el Recibo Interno.
+            ya quedaron registrados cuando se cobró la Nota de Venta.
         </p>
     </div>
 
@@ -57,7 +57,7 @@
 
     <?php if (!$tieneDatosCliente): ?>
         <div class="alert alert-warning mt-3 mb-0">
-            Este Recibo Interno no tiene datos de cliente registrados. Complétalos para poder emitir la Boleta.
+            Esta Nota de Venta no tiene datos de cliente registrados. Complétalos para poder emitir la Boleta.
         </div>
     <?php endif; ?>
 

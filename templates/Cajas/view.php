@@ -995,7 +995,7 @@
 
                         $tipoLabel = $inv->tipo_doc === '01'
                             ? 'Factura'
-                            : ($inv->tipo_doc === '03' ? 'Boleta' : 'Recibo Interno');
+                            : ($inv->tipo_doc === '03' ? 'Boleta' : 'Nota de Venta');
 
                         $esAnulado = $inv->estado === 'ANULADO';
 
