@@ -504,7 +504,7 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                 $serie = 'RI';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             } elseif ($tipoDoc === '03') {
-                $serie = 'B001';
+                $serie = 'B002';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             } elseif ($tipoDoc === '01') {
                 $serie = 'F001';
@@ -3139,7 +3139,7 @@ public function transformarABoleta($id)
             return $this->redirect(['action' => 'transformarABoleta', $id]);
         }
 
-        $serie = 'B001';
+        $serie = 'B002';
         $correlativo = $this->obtenerSiguienteCorrelativo((int)$invoice->company_id, $serie);
 
         $invoice = $this->Invoices->patchEntity($invoice, [

@@ -19,7 +19,7 @@
             </div>
         </div>
         <p class="text-muted small mt-2 mb-0">
-            Se emitirá una Boleta con nueva serie/correlativo (B001). No se afecta caja ni stock,
+            Se emitirá una Boleta con nueva serie/correlativo (B002). No se afecta caja ni stock,
             ya quedaron registrados cuando se cobró la Nota de Venta.
         </p>
     </div>
