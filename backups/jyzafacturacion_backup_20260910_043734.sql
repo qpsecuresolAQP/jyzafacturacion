@@ -1438,7 +1438,7 @@ SET character_set_client = @saved_cs_client;
 /*!50001 SET @saved_col_connection     = @@collation_connection */;
 /*!50001 SET character_set_client      = utf8mb4 */;
 /*!50001 SET character_set_results     = utf8mb4 */;
-/*!50001 SET collation_connection      = utf8mb4_0900_ai_ci */;
+/*!50001 SET collation_connection      = utf8mb4_general_ci */;
 /*!50001 CREATE ALGORITHM=UNDEFINED */
 /*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
 /*!50001 VIEW `vista_reporte_productos` AS select `p`.`id` AS `producto_id`,`p`.`nombre` AS `nombre`,`p`.`codigo` AS `codigo`,`p`.`categoria_producto_id` AS `categoria_id`,`cp`.`nombre` AS `categoria_nombre`,`p`.`proveedor_id` AS `proveedor_id`,`pr`.`nombre` AS `proveedor_nombre`,`pr`.`whatsapp` AS `proveedor_whatsapp`,`pr`.`email` AS `proveedor_email`,`p`.`precio_compra` AS `precio_compra`,`p`.`precio` AS `precio_venta`,(`p`.`precio` - `p`.`precio_compra`) AS `margen_unitario`,(case when (`p`.`precio_compra` > 0) then round((((`p`.`precio` - `p`.`precio_compra`) / `p`.`precio_compra`) * 100),2) else 0 end) AS `margen_porcentaje`,`p`.`stock` AS `stock`,`p`.`stock_minimo` AS `stock_minimo`,(`p`.`stock` * `p`.`precio_compra`) AS `valor_inventario`,(case when (`p`.`stock` <= 0) then 'AGOTADO' when ((`p`.`stock_minimo` > 0) and (`p`.`stock` <= `p`.`stock_minimo`)) then 'BAJO' else 'NORMAL' end) AS `estado_stock`,`p`.`estado` AS `activo`,`p`.`created` AS `created`,`p`.`modified` AS `modified` from ((`productos` `p` left join `categorias_productos` `cp` on((`cp`.`id` = `p`.`categoria_producto_id`))) left join `proveedores` `pr` on((`pr`.`id` = `p`.`proveedor_id`))) */;

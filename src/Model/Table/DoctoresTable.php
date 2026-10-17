@@ -132,7 +132,16 @@ class DoctoresTable extends Table
             $primerApellido = strtolower($apellidoParts[0]); // Primer apellido completo
 
             // Generar username
-            $username = $inicialNombre . $primerApellido;
+            $usernameBase = $inicialNombre . $primerApellido;
+            $username = $usernameBase;
+
+            // Evitar colisión con usuarios existentes (la regla isUnique haría
+            // fallar el guardado anidado y revertiría toda la transacción).
+            $sufijo = 1;
+            while ($usuariosTable->exists(['username' => $username])) {
+                $sufijo++;
+                $username = $usernameBase . $sufijo;
+            }
 
             $usuario = $usuariosTable->newEntity([
                 'username' => $username,
