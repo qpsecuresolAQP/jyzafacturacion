@@ -85,46 +85,53 @@
 
     <!-- Tarifas fijas por tratamiento (solo si modo_pago = FIJO) -->
     <div class="col-12 mb-3" id="wrap-tarifas-fijas">
-        <h5 class="text-info"><i class="fas fa-list"></i> Tarifas Fijas por Tratamiento</h5>
+        <h5 class="text-info"><i class="fas fa-list"></i> Tarifas Fijas por Servicio</h5>
         <p class="text-muted small">
             Por defecto se usa la "Tarifa por Defecto" configurada en cada Tratamiento (aplica a todos los doctores en modo fijo).
             Solo llena "Tarifa Especial" si a este doctor en particular se le paga distinto para ese tratamiento; déjalo vacío para usar el default.
         </p>
+        <input type="text" id="filtro-tarifas" class="form-control form-control-sm mb-2" placeholder="Buscar servicio...">
         <div class="table-responsive">
-            <table class="table table-sm table-striped">
+            <table class="table table-sm table-striped align-middle" style="table-layout: fixed; width: 100%;">
                 <thead class="bg-info text-white">
                     <tr>
-                        <th>Tratamiento</th>
-                        <th>Precio Clínica</th>
-                        <th>Tarifa por Defecto</th>
-                        <th style="width: 200px;">Tarifa Especial (opcional)</th>
+                        <th style="width: 38%; white-space: normal;">Servicio</th>
+                        <th style="width: 24%; white-space: normal;">Tarifa Especial (opcional)</th>
+                        <th style="width: 19%; white-space: normal;">Tarifa por Defecto</th>
+                        <th style="width: 19%; white-space: normal;">Precio Clínica</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tbody-tarifas">
                     <?php foreach ($tratamientos as $trat): ?>
                         <tr>
-                            <td><?= h($trat->nombre) ?></td>
-                            <td>S/ <?= number_format((float) $trat->costo, 2) ?></td>
+                            <td style="white-space: normal; overflow-wrap: anywhere; word-break: break-word; font-size: 0.85rem;"><?= h($trat->nombre) ?></td>
                             <td>
+                                <input type="number" step="0.01" min="0"
+                                    name="tarifas[<?= $trat->id ?>]"
+                                    class="form-control form-control-sm"
+                                    style="width: 100%; min-width: 0;"
+                                    placeholder="S/ <?= number_format((float) $trat->monto_fijo_pago, 2) ?>"
+                                    value="<?= isset($tarifasActuales[$trat->id]) ? h($tarifasActuales[$trat->id]) : '' ?>">
+                            </td>
+                            <td style="white-space: normal; font-size: 0.85rem;">
                                 <?= $trat->monto_fijo_pago > 0
                                     ? 'S/ ' . number_format((float) $trat->monto_fijo_pago, 2)
                                     : '<span class="text-muted">Sin default</span>' ?>
                             </td>
-                            <td>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">S/</span>
-                                    <input type="number" step="0.01" min="0"
-                                        name="tarifas[<?= $trat->id ?>]"
-                                        class="form-control"
-                                        placeholder="<?= number_format((float) $trat->monto_fijo_pago, 2) ?>"
-                                        value="<?= isset($tarifasActuales[$trat->id]) ? h($tarifasActuales[$trat->id]) : '' ?>">
-                                </div>
-                            </td>
+                            <td style="white-space: normal; font-size: 0.85rem;">S/ <?= number_format((float) $trat->costo, 2) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
+        <script>
+            document.getElementById('filtro-tarifas').addEventListener('input', function () {
+                const q = this.value.toLowerCase();
+                document.querySelectorAll('#tbody-tarifas tr').forEach(function (tr) {
+                    tr.style.display = tr.cells[0].textContent.toLowerCase().includes(q) ? '' : 'none';
+                });
+            });
+        </script>
     </div>
 
     <!-- Botones -->

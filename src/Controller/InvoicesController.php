@@ -529,6 +529,14 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                 $clienteNumero = trim((string) ($data['boleta_dni'] ?? ''));
                 $clienteNombre = trim((string) ($data['boleta_nombre'] ?? ''));
 
+                // Boleta sin identificar (consumidor final): válida hasta S/ 700.00
+                // (el tope se verifica al calcular el total, más abajo).
+                if ($clienteNumero === '' && $clienteNombre === '') {
+                    $clienteTipoDoc = '0';
+                    $clienteNumero = '-';
+                    $clienteNombre = 'CLIENTES VARIOS';
+                }
+
                 if ($clienteTipoDoc === '1' && !preg_match('/^\d{8}$/', $clienteNumero)) {
                     throw new \RuntimeException('La boleta requiere DNI válido de 8 dígitos.');
                 }
@@ -561,6 +569,15 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                 if ($clienteNombre === '') {
                     throw new \RuntimeException('La factura requiere razón social.');
                 }
+            }
+
+            // Boleta / Nota de Venta con documento de identidad: registrar al cliente
+            // como paciente (si aún no existe) para no repetir DNI ni nombres.
+            if (!$pacienteId && in_array($tipoDoc, ['03', 'RI'], true)
+                && $clienteTipoDoc === '1' && preg_match('/^\d{8}$/', (string) $clienteNumero)
+                && trim((string) $clienteNombre) !== ''
+            ) {
+                $pacienteId = $this->obtenerOCrearPacientePorDni((string) $clienteNumero, (string) $clienteNombre, (int) $userId);
             }
 
             $invoiceData = [
@@ -888,6 +905,10 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                 $invoice->subtotal = round($subtotal, 2);
                 $invoice->igv = round($igv, 2);
                 $invoice->total = round($total, 2);
+
+                if ($invoice->tipo_doc === '03' && (string) $invoice->cliente_tipo_doc === '0' && $invoice->total > 700) {
+                    throw new \RuntimeException('Boletas mayores a S/ 700.00 requieren DNI y nombre del cliente (SUNAT).');
+                }
 
                 if (!$this->Invoices->save($invoice)) {
                     throw new \RuntimeException('No se pudo actualizar totales de invoice');
@@ -1784,7 +1805,7 @@ public function comprobanteCuota($cuotaId)
                 ->setTipoDoc('03')
                 ->setSerieNro($b->serie . '-' . str_pad((string)$b->correlativo, 8, '0', STR_PAD_LEFT))
                 ->setEstado('1')
-                ->setClienteTipo((string)($b->cliente_tipo_doc ?: '1'))
+                ->setClienteTipo((string)($b->cliente_tipo_doc !== null && $b->cliente_tipo_doc !== '' ? $b->cliente_tipo_doc : '1'))
                 ->setClienteNro((string)($b->cliente_numero ?: '00000000'))
                 ->setTotal((float)$b->total)
                 ->setMtoOperGravadas((float)$b->subtotal)
@@ -2195,6 +2216,47 @@ public function comprobanteCuota($cuotaId)
 
         return $serie . '-' . $correlativo . '.pdf';
     }
+    /**
+     * Devuelve el id del paciente con ese DNI; si no existe lo crea junto con su historia clínica.
+     * Retorna null si no se pudo registrar (no debe bloquear la emisión del comprobante).
+     */
+    private function obtenerOCrearPacientePorDni(string $dni, string $nombreCompleto, int $userId): ?int
+    {
+        $historias = $this->fetchTable('HistoriasClinicas');
+        $existente = $historias->find()->where(['dni' => $dni])->first();
+        if ($existente && $existente->paciente_id) {
+            return (int) $existente->paciente_id;
+        }
+
+        $palabras = preg_split('/\s+/', trim($nombreCompleto)) ?: [];
+        if (count($palabras) >= 3) {
+            $apellido = implode(' ', array_slice($palabras, -2));
+            $nombre = implode(' ', array_slice($palabras, 0, -2));
+        } elseif (count($palabras) === 2) {
+            [$nombre, $apellido] = $palabras;
+        } else {
+            $nombre = $palabras[0] ?? $nombreCompleto;
+            $apellido = '-';
+        }
+
+        $pacientes = $this->fetchTable('Pacientes');
+        $paciente = $pacientes->newEntity(['nombre' => $nombre, 'apellido' => $apellido]);
+        if (!$pacientes->save($paciente)) {
+            return null;
+        }
+
+        if ($existente) {
+            $existente->paciente_id = $paciente->id;
+            $historias->save($existente);
+        } else {
+            $historia = $historias->newEntity(['dni' => $dni, 'user_id' => $userId ?: null]);
+            $historia->paciente_id = $paciente->id;
+            $historias->save($historia);
+        }
+
+        return (int) $paciente->id;
+    }
+
     private function obtenerSiguienteCorrelativo(int $companyId, string $serie): int
     {
         $last = $this->Invoices->find()
@@ -2222,6 +2284,30 @@ public function comprobanteCuota($cuotaId)
                     'ok' => false,
                     'message' => 'DNI inválido'
                 ], JSON_UNESCAPED_UNICODE));
+        }
+
+        // Primero buscar en pacientes ya registrados (evita consultar la API)
+        $historia = $this->fetchTable('HistoriasClinicas')->find()
+            ->contain(['Pacientes'])
+            ->where(['HistoriasClinicas.dni' => $dni, 'HistoriasClinicas.paciente_id IS NOT' => null])
+            ->first();
+        if ($historia && $historia->paciente) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'ok' => true,
+                    'local' => true,
+                    'paciente_id' => (int) $historia->paciente->id,
+                    'dni' => $dni,
+                    'nombre' => trim($historia->paciente->nombre . ' ' . $historia->paciente->apellido),
+                ], JSON_UNESCAPED_UNICODE));
+        }
+
+        // Consulta automática: solo base local, sin gastar la API externa
+        if ($this->request->getQuery('solo_local')) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode(['ok' => false, 'local' => true, 'message' => 'No registrado'], JSON_UNESCAPED_UNICODE));
         }
 
         try {

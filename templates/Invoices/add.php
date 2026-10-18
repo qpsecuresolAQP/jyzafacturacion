@@ -572,9 +572,9 @@ function actualizarCuotas() {
     cuotasAlert.style.display = diferencia !== 0 ? 'block' : 'none';
 
     if (diferencia > 0) {
-        cuotasAlert.innerHTML = `<strong class="text-warning">⚠️ Falta S/ ${Math.abs(diferencia).toFixed(2)} por asignar en cuotas</strong>`;
+        cuotasAlert.innerHTML = `<strong style="color:#92400e;">⚠️ Falta S/ ${Math.abs(diferencia).toFixed(2)} por asignar en cuotas</strong>`;
     } else if (diferencia < 0) {
-        cuotasAlert.innerHTML = `<strong class="text-warning">⚠️ Las cuotas suman S/ ${Math.abs(diferencia).toFixed(2)} de más</strong>`;
+        cuotasAlert.innerHTML = `<strong style="color:#92400e;">⚠️ Las cuotas suman S/ ${Math.abs(diferencia).toFixed(2)} de más</strong>`;
     } else {
         cuotasAlert.innerHTML = '<strong class="text-success">✓ La suma de cuotas coincide con el total a pagar</strong>';
     }
@@ -771,10 +771,10 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
     paymentAlert.style.display = diferencia !== 0 ? 'block' : 'none';
 
     if (diferencia > 0) {
-        paymentAlert.innerHTML = `<strong class="text-warning">⚠️ Falta S/ ${Math.abs(diferencia).toFixed(2)} por cobrar</strong>`;
+        paymentAlert.innerHTML = `<strong style="color:#92400e;">⚠️ Falta S/ ${Math.abs(diferencia).toFixed(2)} por cobrar</strong>`;
         paymentAlert.className = 'mt-2';
     } else if (diferencia < 0) {
-        paymentAlert.innerHTML = `<strong class="text-warning">⚠️ Sobra S/ ${Math.abs(diferencia).toFixed(2)}</strong>`;
+        paymentAlert.innerHTML = `<strong style="color:#92400e;">⚠️ Sobra S/ ${Math.abs(diferencia).toFixed(2)}</strong>`;
         paymentAlert.className = 'mt-2';
     } else {
         paymentAlert.innerHTML = '<strong class="text-success">✓ El monto recibido coincide con el total a pagar</strong>';
@@ -1194,8 +1194,9 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
 });
 
     itemsContainer.addEventListener('click', function (e) {
-        if (e.target.classList.contains('btn-remove-item')) {
-            e.target.closest('.item-row').remove();
+        const btnRemoveItem = e.target.closest('.btn-remove-item');
+        if (btnRemoveItem) {
+            btnRemoveItem.closest('.item-row').remove();
             if (itemsContainer.querySelectorAll('.item-row').length === 0) {
                 itemsContainer.innerHTML = '<p class="text-muted mb-0" id="no-items-placeholder">No hay items agregados. Usa los botones de abajo para agregar un servicio, producto o examen.</p>';
             }
@@ -1219,6 +1220,52 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
             if (inputEl) pm.monto = parseFloat(inputEl.value || 0);
         });
 
+
+        // Validar datos del cliente según tipo de comprobante (con aviso visible)
+        const boletaDni = document.getElementById('boleta_dni');
+        const boletaNombre = document.getElementById('boleta_nombre');
+        const facturaRuc = document.getElementById('factura_ruc');
+        const facturaRazonSocial = document.getElementById('factura_razon_social');
+        const tdoc = tipoDoc.value;
+        const marcarFalta = (input, helpId, msg) => {
+            input.classList.add('is-invalid');
+            const help = document.getElementById(helpId);
+            if (help) help.innerHTML = `<span class="text-danger">${msg}</span>`;
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            input.focus();
+            e.preventDefault();
+        };
+        if (tdoc === '03' || tdoc === 'RI') {
+            const dniVal = (boletaDni.value || '').trim();
+            const tipoCli = document.getElementById('boleta_tipo_doc').value;
+            const dniOk = tipoCli === '4' ? /^[A-Za-z0-9]{9,12}$/.test(dniVal) : /^\d{8}$/.test(dniVal);
+            const nombreVal = (boletaNombre.value || '').trim();
+            const totalBoleta = Math.round(calcularTotalFormulario() * 100) / 100;
+            if (tdoc === '03' && dniVal === '' && nombreVal === '' && totalBoleta > 700) {
+                marcarFalta(boletaDni, 'dni-help', 'Boletas mayores a S/ 700.00 requieren DNI y nombre del cliente.');
+                return false;
+            }
+            // Sin DNI ni nombre: consumidor final (CLIENTES VARIOS) hasta S/ 700
+            if (dniVal !== '' || nombreVal !== '') {
+                if (!(boletaNombre.value || '').trim()) {
+                    marcarFalta(boletaNombre, 'dni-help', 'Falta el nombre del cliente.');
+                    return false;
+                }
+                if (!dniOk) {
+                    marcarFalta(boletaDni, 'dni-help', tipoCli === '4' ? 'Documento inválido (9 a 12 caracteres).' : 'DNI debe tener 8 dígitos.');
+                    return false;
+                }
+            }
+        } else if (tdoc === '01') {
+            if (!/^\d{11}$/.test((facturaRuc.value || '').trim())) {
+                marcarFalta(facturaRuc, 'ruc-help', 'RUC debe tener 11 dígitos.');
+                return false;
+            }
+            if (!(facturaRazonSocial.value || '').trim()) {
+                marcarFalta(facturaRazonSocial, 'ruc-help', 'Falta la razón social.');
+                return false;
+            }
+        }
         const jsonString = JSON.stringify(paymentMethods);
         paymentMethodsJson.value = jsonString;
 
@@ -1699,11 +1746,41 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
                     return;
                 }
                 boletaNombre.value = data.nombre || '';
-                dniHelp.innerHTML  = '<span class="text-success">DNI encontrado correctamente.</span>';
+                boletaNombre.classList.remove('is-invalid');
+                if (data.local && data.paciente_id) {
+                    document.getElementById('paciente_id').value = data.paciente_id;
+                    dniHelp.innerHTML = '<span class="text-success">Paciente ya registrado.</span>';
+                } else {
+                    dniHelp.innerHTML  = '<span class="text-success">DNI encontrado correctamente.</span>';
+                }
             } catch {
                 dniHelp.innerHTML = '<span class="text-danger">Error al consultar DNI.</span>';
             }
         });
+    }
+
+    // Autocompletar al escribir un DNI de 8 dígitos ya registrado como paciente
+    if (boletaDni) {
+        boletaDni.addEventListener('input', async function () {
+            const doc = (boletaDni.value || '').trim();
+            boletaDni.classList.remove('is-invalid');
+            if (!(boletaTipoDoc.value === '1' && /^\d{8}$/.test(doc))) return;
+            try {
+                const res  = await fetch(urlConsultarDni + '?solo_local=1&dni=' + encodeURIComponent(doc), {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.ok && data.local && (boletaDni.value || '').trim() === doc) {
+                    boletaNombre.value = data.nombre || '';
+                    boletaNombre.classList.remove('is-invalid');
+                    document.getElementById('paciente_id').value = data.paciente_id;
+                    dniHelp.innerHTML = '<span class="text-success">Paciente ya registrado.</span>';
+                }
+            } catch (err) { /* sin autocompletado */ }
+        });
+    }
+    if (boletaNombre) {
+        boletaNombre.addEventListener('input', () => boletaNombre.classList.remove('is-invalid'));
     }
 
     if (btnBuscarRuc) {

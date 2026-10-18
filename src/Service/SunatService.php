@@ -14,7 +14,9 @@ class SunatService
     {
         $this->see = new See();
 
-        $certPath = ROOT . DS . 'webroot' . DS . (string)$company->certificado_sunat;
+        // Los certificados viven fuera de webroot (no accesibles por URL).
+        // Se usa solo el nombre de archivo para evitar rutas arbitrarias.
+        $certPath = ROOT . DS . 'config' . DS . 'certificados' . DS . basename((string)$company->certificado_sunat);
 
         if (empty($company->certificado_sunat) || !file_exists($certPath)) {
             throw new \RuntimeException('No se encontró el certificado SUNAT en: ' . $certPath);
