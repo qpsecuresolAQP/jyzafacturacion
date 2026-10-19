@@ -285,6 +285,14 @@
                             </a>
                         </li>
                         <?php endif; ?>
+                        <?php if ($this->Permisos->tiene('ProductoMovimientos', 'perdidas')): ?>
+                        <li class="nav-item">
+                            <a href="<?= $this->Url->build(['controller' => 'ProductoMovimientos', 'action' => 'perdidas']) ?>" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Pérdidas y bajas</p>
+                            </a>
+                        </li>
+                        <?php endif; ?>
                         <?php if ($this->Permisos->tiene('Productos', 'index')): ?>
                         <li class="nav-item">
                             <a href="<?= $this->Url->build(['controller' => 'Productos', 'action' => 'index']) ?>" class="nav-link">

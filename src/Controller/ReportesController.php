@@ -12,35 +12,87 @@ class ReportesController extends AppController
 {
     /**
      * Construye el mapa de métodos de pago por comprobante filtrando por caja cuando exista.
+     * Una sola consulta por bloque de comprobantes (no una por comprobante), para que
+     * los rangos de fechas grandes no saturen la base de datos.
      *
-     * @param array<int, object> $invoices
+     * @param iterable<object> $invoices Entidades con id y caja_id
      * @return array<int, array<int, array{metodo:string,monto:float}>>
      */
-    private function buildPagosPorComprobante(array $invoices): array
+    private function buildPagosPorComprobante(iterable $invoices): array
     {
         $CajaMovimientos = $this->fetchTable('CajaMovimientos');
 
         $pagosPorComprobante = [];
+        $cajaPorComprobante = [];
         foreach ($invoices as $inv) {
             $pagosPorComprobante[$inv->id] = [];
+            $cajaPorComprobante[$inv->id] = $inv->caja_id;
+        }
 
-            $query = $CajaMovimientos->find()
-                ->where(['CajaMovimientos.invoice_id' => $inv->id])
-                ->orderBy(['CajaMovimientos.id' => 'ASC']);
+        foreach (array_chunk(array_keys($pagosPorComprobante), 1000) as $ids) {
+            $movimientos = $CajaMovimientos->find()
+                ->where(['CajaMovimientos.invoice_id IN' => $ids])
+                ->orderBy(['CajaMovimientos.id' => 'ASC'])
+                ->all();
 
-            if (!empty($inv->caja_id)) {
-                $query->where(['CajaMovimientos.caja_id' => $inv->caja_id]);
-            }
-
-            foreach ($query->all() as $mov) {
-                $pagosPorComprobante[$inv->id][] = [
+            foreach ($movimientos as $mov) {
+                $cajaEsperada = $cajaPorComprobante[$mov->invoice_id] ?? null;
+                if (!empty($cajaEsperada) && (int) $mov->caja_id !== (int) $cajaEsperada) {
+                    continue;
+                }
+                $pagosPorComprobante[$mov->invoice_id][] = [
                     'metodo' => $mov->metodo_pago ?? 'EFECTIVO',
-                    'monto' => (float)($mov->monto_recibido ?? 0),
+                    'monto' => (float) ($mov->monto_recibido ?? 0),
                 ];
             }
         }
 
         return $pagosPorComprobante;
+    }
+
+    /**
+     * Filtros del reporte. Sin fechas se usa el día de hoy (es lo que muestra el
+     * formulario), así lo que se ve en los campos es lo que realmente se consulta.
+     *
+     * @return array{0: ?string, 1: string, 2: string}
+     */
+    private function filtros(): array
+    {
+        $tipo = $this->request->getQuery('tipo');
+        $valida = fn($f) => is_string($f) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $f) && strtotime($f) !== false;
+        $desde = $this->request->getQuery('desde');
+        $hasta = $this->request->getQuery('hasta');
+        $desde = $valida($desde) ? $desde : date('Y-m-d');
+        $hasta = $valida($hasta) ? $hasta : date('Y-m-d');
+        if ($desde > $hasta) {
+            [$desde, $hasta] = [$hasta, $desde];
+        }
+
+        return [$tipo, $desde, $hasta];
+    }
+
+    /**
+     * Comprobantes del período y tipo elegidos (incluye anulados; los totales los excluyen).
+     */
+    private function consultaComprobantes(?string $tipo, string $desde, string $hasta)
+    {
+        $query = $this->fetchTable('Invoices')->find()
+            ->order(['Invoices.created' => 'DESC']);
+
+        if ($tipo === 'BOLETA') {
+            $query->where(['Invoices.tipo_doc' => '03']);
+        } elseif ($tipo === 'FACTURA') {
+            $query->where(['Invoices.tipo_doc' => '01']);
+        } elseif ($tipo === 'RI') {
+            $query->where(['Invoices.estado' => 'RECIBO_INTERNO']);
+        }
+
+        $query->where([
+            'DATE(Invoices.created) >=' => $desde,
+            'DATE(Invoices.created) <=' => $hasta,
+        ]);
+
+        return $query;
     }
 
     /**
@@ -75,73 +127,44 @@ class ReportesController extends AppController
 
     public function index()
     {
-        $Invoices = $this->fetchTable('Invoices');
+        [$tipo, $desde, $hasta] = $this->filtros();
 
-        $tipo = $this->request->getQuery('tipo');
-        $desde = $this->request->getQuery('desde');
-        $hasta = $this->request->getQuery('hasta');
+        $query = $this->consultaComprobantes($tipo, $desde, $hasta);
 
-        $query = $Invoices->find()
-            ->contain(['Companies', 'Pacientes', 'HistoriasClinicas', 'Doctores'])
-            ->order(['Invoices.created' => 'DESC']);
+        // Listado paginado: con rangos grandes no se carga todo de golpe.
+        $invoices = $this->paginate(
+            (clone $query)->contain(['Companies', 'Pacientes', 'HistoriasClinicas', 'Doctores']),
+            ['limit' => 25, 'maxLimit' => 100]
+        );
 
-        // 🎯 FILTRO TIPO
-        if ($tipo === 'BOLETA') {
-            $query->where(['Invoices.tipo_doc' => '03']);
-        } elseif ($tipo === 'FACTURA') {
-            $query->where(['Invoices.tipo_doc' => '01']);
-        } elseif ($tipo === 'RI') {
-            $query->where(['Invoices.estado' => 'RECIBO_INTERNO']);
-        }
+        // Totales de TODO el período (no solo de la página). Los comprobantes
+        // anulados no cuentan como venta.
+        $vigentes = (clone $query)->where(['Invoices.estado !=' => 'ANULADO']);
 
-        // 📅 FILTRO FECHAS
-        if (!empty($desde)) {
-            $query->where(['DATE(Invoices.created) >=' => $desde]);
-        }
+        $totalBoletas = (clone $vigentes)->where(['Invoices.tipo_doc' => '03'])->count();
+        $totalFacturas = (clone $vigentes)->where(['Invoices.tipo_doc' => '01'])->count();
+        $totalRecibos = (clone $vigentes)->where(['Invoices.estado' => 'RECIBO_INTERNO'])->count();
+        $totalComprobantes = (clone $vigentes)->count();
+        $totalVentas = (float) ((clone $vigentes)
+            ->select(['total_sum' => $query->func()->sum('Invoices.total')])
+            ->disableHydration()
+            ->first()['total_sum'] ?? 0);
+        $totalAnulados = (clone $query)->where(['Invoices.estado' => 'ANULADO'])->count();
 
-        if (!empty($hasta)) {
-            $query->where(['DATE(Invoices.created) <=' => $hasta]);
-        }
-
-        $invoices = $this->paginate($query);
-
-        // 📊 KPIs (CLONAR QUERY BIEN EN CAKEPHP)
-        $baseQuery = clone $query;
-
-        $totalBoletas = (clone $baseQuery)
-            ->where(['Invoices.tipo_doc' => '03'])
-            ->count();
-
-        $totalFacturas = (clone $baseQuery)
-            ->where(['Invoices.tipo_doc' => '01'])
-            ->count();
-
-        $totalRecibos = (clone $baseQuery)
-            ->where(['Invoices.estado' => 'RECIBO_INTERNO'])
-            ->count();
-
-        $totalVentas = (clone $baseQuery)
-            ->select(['total_sum' => $baseQuery->func()->sum('total')])
-            ->first()
-            ->total_sum ?? 0;
-
-        $totalComprobantes = (clone $baseQuery)->count();
-
-        // 💳 ANÁLISIS DE PAGOS
+        // Análisis de pagos de todo el período (sin anulados)
         $pagosPorTipo = [];
         $totalPorTipo = [];
         $resumenPagos = [];
 
         try {
-            $pagosPorComprobante = $this->buildPagosPorComprobante($invoices->toArray());
-            $resumenPagos = $this->buildResumenPagos($pagosPorComprobante);
+            $paraPagos = (clone $vigentes)->select(['Invoices.id', 'Invoices.caja_id'])->all();
+            $resumenPagos = $this->buildResumenPagos($this->buildPagosPorComprobante($paraPagos));
 
             foreach ($resumenPagos as $metodo => $datos) {
                 $pagosPorTipo[$metodo] = $datos['cantidad'];
                 $totalPorTipo[$metodo] = $datos['total'];
             }
         } catch (\Exception $e) {
-            // Si hay error al cargar movimientos, continuar sin ellos
             $pagosPorTipo = [];
             $totalPorTipo = [];
             $resumenPagos = [];
@@ -154,6 +177,7 @@ class ReportesController extends AppController
             'totalRecibos',
             'totalVentas',
             'totalComprobantes',
+            'totalAnulados',
             'pagosPorTipo',
             'totalPorTipo',
             'resumenPagos',
@@ -168,38 +192,19 @@ class ReportesController extends AppController
      */
     public function exportarPdf()
     {
-        $Invoices = $this->fetchTable('Invoices');
-        $tipo = $this->request->getQuery('tipo');
-        $desde = $this->request->getQuery('desde');
-        $hasta = $this->request->getQuery('hasta');
+        [$tipo, $desde, $hasta] = $this->filtros();
 
-        $query = $Invoices->find()
+        $invoices = (clone $this->consultaComprobantes($tipo, $desde, $hasta))
             ->contain(['Companies', 'Pacientes', 'HistoriasClinicas', 'Doctores'])
-            ->order(['Invoices.created' => 'DESC']);
-
-        // 🎯 FILTRO TIPO
-        if ($tipo === 'BOLETA') {
-            $query->where(['Invoices.tipo_doc' => '03']);
-        } elseif ($tipo === 'FACTURA') {
-            $query->where(['Invoices.tipo_doc' => '01']);
-        } elseif ($tipo === 'RI') {
-            $query->where(['Invoices.estado' => 'RECIBO_INTERNO']);
-        }
-
-        // 📅 FILTRO FECHAS
-        if (!empty($desde)) {
-            $query->where(['DATE(Invoices.created) >=' => $desde]);
-        }
-
-        if (!empty($hasta)) {
-            $query->where(['DATE(Invoices.created) <=' => $hasta]);
-        }
-
-        $invoices = $query->toArray();
-        $totalVentas = array_sum(array_map(fn($i) => (float)$i->total, $invoices));
+            ->toArray();
+        // Los anulados se listan (con su estado) pero no suman en totales ni pagos.
+        $vigentes = array_values(array_filter($invoices, fn($i) => $i->estado !== 'ANULADO'));
+        $totalVentas = array_sum(array_map(fn($i) => (float) $i->total, $vigentes));
 
         $pagosPorComprobante = $this->buildPagosPorComprobante($invoices);
-        $resumenPagos = $this->buildResumenPagos($pagosPorComprobante);
+        $resumenPagos = $this->buildResumenPagos(
+            array_intersect_key($pagosPorComprobante, array_flip(array_map(fn($i) => $i->id, $vigentes)))
+        );
 
         // Convertir a DateTime si es string
         $fechaInicio = $desde ? new \DateTime($desde) : null;
@@ -232,38 +237,19 @@ class ReportesController extends AppController
      */
     public function exportarExcel()
     {
-        $Invoices = $this->fetchTable('Invoices');
-        $tipo = $this->request->getQuery('tipo');
-        $desde = $this->request->getQuery('desde');
-        $hasta = $this->request->getQuery('hasta');
+        [$tipo, $desde, $hasta] = $this->filtros();
 
-        $query = $Invoices->find()
+        $invoices = (clone $this->consultaComprobantes($tipo, $desde, $hasta))
             ->contain(['Companies', 'Pacientes', 'HistoriasClinicas', 'Doctores'])
-            ->order(['Invoices.created' => 'DESC']);
-
-        // 🎯 FILTRO TIPO
-        if ($tipo === 'BOLETA') {
-            $query->where(['Invoices.tipo_doc' => '03']);
-        } elseif ($tipo === 'FACTURA') {
-            $query->where(['Invoices.tipo_doc' => '01']);
-        } elseif ($tipo === 'RI') {
-            $query->where(['Invoices.estado' => 'RECIBO_INTERNO']);
-        }
-
-        // 📅 FILTRO FECHAS
-        if (!empty($desde)) {
-            $query->where(['DATE(Invoices.created) >=' => $desde]);
-        }
-
-        if (!empty($hasta)) {
-            $query->where(['DATE(Invoices.created) <=' => $hasta]);
-        }
-
-        $invoices = $query->toArray();
-        $totalVentas = array_sum(array_map(fn($i) => (float)$i->total, $invoices));
+            ->toArray();
+        // Los anulados se listan (con su estado) pero no suman en totales ni pagos.
+        $vigentes = array_values(array_filter($invoices, fn($i) => $i->estado !== 'ANULADO'));
+        $totalVentas = array_sum(array_map(fn($i) => (float) $i->total, $vigentes));
 
         $pagosPorComprobante = $this->buildPagosPorComprobante($invoices);
-        $resumenPagos = $this->buildResumenPagos($pagosPorComprobante);
+        $resumenPagos = $this->buildResumenPagos(
+            array_intersect_key($pagosPorComprobante, array_flip(array_map(fn($i) => $i->id, $vigentes)))
+        );
 
         // Crear hoja Excel
         $spreadsheet = new Spreadsheet();
@@ -287,12 +273,14 @@ class ReportesController extends AppController
         foreach ($invoices as $inv) {
             $tipo_label = $inv->tipo_doc === '01' ? 'Factura' : ($inv->tipo_doc === '03' ? 'Boleta' : 'Nota de Venta');
             
-            // Contar por tipo
-            if (!isset($totalPorTipo[$tipo_label])) {
-                $totalPorTipo[$tipo_label] = ['cantidad' => 0, 'total' => 0];
+            // Contar por tipo (los anulados no suman)
+            if ($inv->estado !== 'ANULADO') {
+                if (!isset($totalPorTipo[$tipo_label])) {
+                    $totalPorTipo[$tipo_label] = ['cantidad' => 0, 'total' => 0];
+                }
+                $totalPorTipo[$tipo_label]['cantidad']++;
+                $totalPorTipo[$tipo_label]['total'] += (float)$inv->total;
             }
-            $totalPorTipo[$tipo_label]['cantidad']++;
-            $totalPorTipo[$tipo_label]['total'] += (float)$inv->total;
 
             // Métodos de pago formateados
             $pagos = $pagosPorComprobante[$inv->id] ?? [];
@@ -359,6 +347,7 @@ class ReportesController extends AppController
         $row++;
         $sheet->setCellValue("E{$row}", 'TOTAL GENERAL');
         $sheet->setCellValue("F{$row}", $totalVentas);
+        $sheet->setCellValue("E" . ($row + 1), '(excluye anulados)');
         $totalStyle = $sheet->getStyle("E{$row}:F{$row}");
         $totalStyle->getFont()->setBold(true);
 

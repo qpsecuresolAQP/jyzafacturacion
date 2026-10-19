@@ -71,6 +71,20 @@ class AppController extends Controller
     }
 
     /**
+     * Los mensajes flash solo se muestran en Invoices (y en el login). En el
+     * resto del sistema se descartan al terminar la petición para que no se
+     * acumulen en la sesión y aparezcan después, fuera de contexto, en Invoices.
+     */
+    public function afterFilter(\Cake\Event\EventInterface $event)
+    {
+        parent::afterFilter($event);
+
+        if (!in_array($this->getName(), ['Invoices', 'Users'], true)) {
+            $this->request->getSession()->delete('Flash');
+        }
+    }
+
+    /**
      * Verifica si el usuario tiene permiso para una acción
      * Si no tiene permiso, renderiza un mensaje simple
      * RESPETA las acciones en 'except' (no verifica esas)

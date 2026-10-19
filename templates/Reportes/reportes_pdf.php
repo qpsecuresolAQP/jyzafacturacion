@@ -93,7 +93,8 @@
                 endif;
             ?>
         </p>
-        <p><strong>Total Comprobantes:</strong> <?= count($invoices) ?></p>
+        <?php $nAnulados = count(array_filter($invoices, fn($i) => $i->estado === 'ANULADO')); ?>
+        <p><strong>Total Comprobantes:</strong> <?= count($invoices) - $nAnulados ?><?= $nAnulados ? ' (más ' . $nAnulados . ' anulado(s), no incluido(s) en los totales)' : '' ?></p>
         <p><strong>Total Ventas:</strong> S/ <?= number_format($totalVentas, 2) ?></p>
         <p><strong>Generado:</strong> <?= date('d/m/Y H:i:s') ?></p>
     </div>

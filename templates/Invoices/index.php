@@ -1,4 +1,18 @@
+<style>
+    /* Colores con contraste suficiente (AA) sobre fondo claro */
+    .btn-outline-ambar { color: #92400e; border-color: #92400e; background: transparent; }
+    .btn-outline-ambar:hover, .btn-outline-ambar:focus { color: #fff; background: #92400e; border-color: #92400e; }
+    .btn-abrir-caja { color: #fff; background: #0b5a6b; border-color: #0b5a6b; }
+    .btn-abrir-caja:hover, .btn-abrir-caja:focus { color: #fff; background: #083f4b; border-color: #083f4b; }
+</style>
 <div class="container-fluid py-4">
+    <?= $this->Flash->render() ?>
+    <?php if (empty($cajaAbierta)): ?>
+        <div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i class="fas fa-info-circle me-1"></i> No hay caja abierta. Puede consultar, anular y enviar comprobantes; para crear uno nuevo debe abrir una caja.</span>
+            <a href="<?= $this->Url->build(['controller' => 'Cajas', 'action' => 'abrir']) ?>" class="btn btn-sm btn-abrir-caja">Abrir caja</a>
+        </div>
+    <?php endif; ?>
     <!-- HEADER CON BOTONES -->
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h3 class="fw-bold mb-0">
@@ -21,11 +35,11 @@
                 <i class="fas fa-cash-register"></i> Caja
             </a>
 
-            <a href="<?= $this->Url->build(['controller' => 'PagosDoctores', 'action' => 'index']) ?>" class="btn btn-outline-warning">
+            <a href="<?= $this->Url->build(['controller' => 'PagosDoctores', 'action' => 'index']) ?>" class="btn btn-outline-ambar">
                 <i class="fas fa-money-bill-wave"></i> Pagos Doc.
             </a>
 
-            <a href="<?= $this->Url->build(['controller' => 'PagosLaboratorios', 'action' => 'index']) ?>" class="btn btn-outline-warning">
+            <a href="<?= $this->Url->build(['controller' => 'PagosLaboratorios', 'action' => 'index']) ?>" class="btn btn-outline-ambar">
                 <i class="fas fa-flask"></i> Pagos Lab.
             </a>
 
@@ -51,7 +65,7 @@
             Notas de Venta
         </a>
         <a href="<?= $this->Url->build(['action' => 'index', '?' => ['tipo' => '03']]) ?>"
-        class="btn btn-sm <?= $this->request->getQuery('tipo') === '03' ? 'btn-warning' : 'btn-outline-warning' ?>">
+        class="btn btn-sm <?= $this->request->getQuery('tipo') === '03' ? 'btn-warning' : 'btn-outline-ambar' ?>">
             Boletas
         </a>
         <a href="<?= $this->Url->build(['action' => 'index', '?' => ['tipo' => '01']]) ?>"

@@ -90,6 +90,7 @@ $queryParams = [
                 <div class="card-body text-center">
                     <h6>Total Ventas</h6>
                     <h4>S/ <?= number_format((float)$totalVentas, 2) ?></h4>
+                    <small class="text-muted"><?= (int)$totalComprobantes ?> comprobante(s)<?= !empty($totalAnulados) ? ' · ' . (int)$totalAnulados . ' anulado(s) no incluido(s)' : '' ?></small>
                 </div>
             </div>
         </div>
@@ -140,7 +141,7 @@ $queryParams = [
 
             <tbody>
                 <?php foreach ($invoices as $inv): ?>
-                <tr>
+                <tr<?= $inv->estado === 'ANULADO' ? ' class="text-muted" style="text-decoration: line-through;"' : '' ?>>
                     <td>
                         <span class="badge bg-secondary">#<?= $inv->id ?></span>
                     </td>
@@ -168,6 +169,7 @@ $queryParams = [
                         elseif ($inv->estado === 'PENDIENTE_RESUMEN') $color = 'warning';
                         elseif ($inv->estado === 'EN_RESUMEN') $color = 'info';
                         elseif ($inv->estado === 'RECIBO_INTERNO') $color = 'dark';
+                        elseif ($inv->estado === 'ANULADO') $color = 'danger';
                         ?>
 
                         <span class="badge bg-<?= $color ?>">
@@ -184,8 +186,20 @@ $queryParams = [
         </table>
     </div>
 
-    <div class="text-muted small mt-3">
-        Mostrando <?= count($invoices) ?> comprobantes
+    <div class="mt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="text-muted small">
+            <?= $this->Paginator->counter('Página {{page}} de {{pages}} · mostrando {{current}} de {{count}} comprobante(s) del período') ?>
+        </div>
+        <ul class="pagination pagination-sm mb-0">
+            <?= $this->Paginator->first('« Primero') ?>
+            <?= $this->Paginator->prev('‹ Anterior') ?>
+            <?= $this->Paginator->numbers() ?>
+            <?= $this->Paginator->next('Siguiente ›') ?>
+            <?= $this->Paginator->last('Último »') ?>
+        </ul>
+    </div>
+    <div class="text-muted small mt-2">
+        Los totales y el resumen de pagos corresponden a todo el período filtrado, no solo a esta página, y no incluyen comprobantes anulados.
     </div>
 </div>
 

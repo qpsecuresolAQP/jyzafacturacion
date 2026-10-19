@@ -17,6 +17,7 @@ class IngresosMercaderiaDetalle extends Entity
         'total' => true,
         'lote' => true,
         'fecha_vencimiento' => true,
+        'producto_lote_id' => true,
         'created' => true,
         'modified' => true,
         'ingresos_mercaderium' => true,

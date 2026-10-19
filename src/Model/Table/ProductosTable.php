@@ -35,6 +35,10 @@ class ProductosTable extends Table
         $this->hasMany('ProductoMovimientos', [
             'foreignKey' => 'producto_id',
         ]);
+
+        $this->hasMany('ProductoLotes', [
+            'foreignKey' => 'producto_id',
+        ]);
     }
 
     public function validationDefault(Validator $validator): Validator
@@ -44,6 +48,10 @@ class ProductosTable extends Table
             ->maxLength('nombre', 150)
             ->requirePresence('nombre', 'create')
             ->notEmptyString('nombre');
+
+        $validator
+            ->boolean('requiere_vencimiento')
+            ->allowEmptyString('requiere_vencimiento');
 
         $validator
             ->decimal('precio')
@@ -57,8 +65,7 @@ class ProductosTable extends Table
 
         $validator
             ->decimal('stock')
-            ->requirePresence('stock', 'create')
-            ->notEmptyString('stock');
+            ->allowEmptyString('stock');
 
         $validator
             ->integer('proveedor_id')

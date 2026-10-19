@@ -20,6 +20,7 @@ class Producto extends Entity
         'stock' => true,
         'stock_minimo' => true,
         'estado' => true,
+        'requiere_vencimiento' => true,
         'created' => true,
         'modified' => true,
         'categoria_producto' => true,

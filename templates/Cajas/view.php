@@ -9,14 +9,13 @@
         </h3>
 
         <div class="d-flex gap-2 flex-wrap">
-            <?php if ($caja->estado === 'CERRADA'): ?>
-                <a href="<?= $this->Url->build(['action' => 'pdf', $caja->id]) ?>"
-                   class="btn btn-success"
-                   target="_blank">
-                    <i class="fas fa-file-pdf me-1"></i>
-                    Exportar PDF
-                </a>
-            <?php endif; ?>
+            <a href="<?= $this->Url->build(['action' => 'pdf', $caja->id]) ?>"
+               class="btn btn-success"
+               target="_blank"
+               <?= $caja->estado !== 'CERRADA' ? 'title="Reporte parcial: la caja aún no está cerrada"' : '' ?>>
+                <i class="fas fa-file-pdf me-1"></i>
+                Exportar PDF<?= $caja->estado !== 'CERRADA' ? ' (parcial)' : '' ?>
+            </a>
 
             <a href="<?= $this->Url->build(['action' => 'index']) ?>"
                class="btn btn-outline-secondary">
@@ -291,7 +290,7 @@
 
         <div class="card-body">
 
-            <h4 class="text-warning fw-bold mb-4">
+            <h4 class="fw-bold mb-4" style="color:#92400e;">
 
                 S/
                 <?= number_format(
@@ -511,7 +510,7 @@
 
     <div class="card shadow-sm mb-4">
 
-    <div class="card-header fw-bold bg-light text-warning">
+    <div class="card-header fw-bold bg-light" style="color:#92400e;">
 
         ↩️ Reembolsos por Anulación
 
@@ -519,7 +518,7 @@
 
     <div class="card-body">
 
-        <h4 class="text-warning fw-bold mb-4">
+        <h4 class="fw-bold mb-4" style="color:#92400e;">
 
             S/
             <?= number_format(
@@ -584,7 +583,7 @@
             </span>
         </td>
 
-                        <td class="text-end fw-bold text-warning">
+                        <td class="text-end fw-bold" style="color:#92400e;">
 
                             S/
                             <?= number_format(

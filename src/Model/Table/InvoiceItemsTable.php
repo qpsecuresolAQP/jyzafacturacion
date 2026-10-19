@@ -38,6 +38,11 @@ class InvoiceItemsTable extends Table
             'foreignKey' => 'examen_id',
             'joinType' => 'LEFT',
         ]);
+
+        $this->hasMany('InvoiceItemLotes', [
+            'foreignKey' => 'invoice_item_id',
+            'dependent' => true,
+        ]);
     }
 
     public function validationDefault(Validator $validator): Validator

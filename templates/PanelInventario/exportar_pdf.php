@@ -108,7 +108,7 @@
 <body>
     <div class="header">
         <div class="title">Reporte de Inventario</div>
-        <div class="subtitle">Generado el <?= date('Y-m-d H:i') ?></div>
+        <div class="subtitle">Generado el <?= date('d/m/Y H:i') ?> · el estado se mide con el stock vigente (sin lotes vencidos)</div>
     </div>
 
     <table class="summary">
@@ -118,8 +118,12 @@
                 <span class="value"><?= (int) $totalProductos ?></span>
             </td>
             <td>
-                <span class="label">Valor de Inventario</span>
+                <span class="label">Inventario al costo</span>
                 <span class="value">S/ <?= number_format($valorInventario, 2) ?></span>
+            </td>
+            <td>
+                <span class="label">A precio de venta</span>
+                <span class="value">S/ <?= number_format($valorVenta, 2) ?></span>
             </td>
             <td>
                 <span class="label">Stock Bajo</span>
@@ -130,7 +134,7 @@
                 <span class="value"><?= (int) $totalAgotados ?></span>
             </td>
             <td>
-                <span class="label">Presupuesto de Reposición</span>
+                <span class="label">Reponer hasta el mínimo</span>
                 <span class="value">S/ <?= number_format($presupuestoReposicion, 2) ?></span>
             </td>
         </tr>
@@ -139,17 +143,20 @@
     <table class="table">
         <thead>
             <tr>
-                <th style="width: 12%;">Categoría</th>
-                <th style="width: 18%;">Producto</th>
-                <th style="width: 8%;">Código</th>
-                <th style="width: 12%;">Proveedor</th>
-                <th style="width: 8%;">P. Compra</th>
-                <th style="width: 8%;">P. Venta</th>
-                <th style="width: 7%;">Margen %</th>
-                <th style="width: 6%;">Stock</th>
-                <th style="width: 6%;">Mínimo</th>
-                <th style="width: 8%;">Valor Inv.</th>
-                <th style="width: 7%;">Estado</th>
+                <th style="width: 10%;">Categoría</th>
+                <th style="width: 17%;">Producto</th>
+                <th style="width: 7%;">Código</th>
+                <th style="width: 10%;">Proveedor</th>
+                <th style="width: 7%;">P. Compra</th>
+                <th style="width: 7%;">P. Venta</th>
+                <th style="width: 6%;">Margen %</th>
+                <th style="width: 6%;">Stock total</th>
+                <th style="width: 6%;">Vigente</th>
+                <th style="width: 6%;">Vencido</th>
+                <th style="width: 5%;">Mínimo</th>
+                <th style="width: 8%;">Próx. venc.</th>
+                <th style="width: 8%;">Valor costo</th>
+                <th style="width: 6%;">Estado</th>
             </tr>
         </thead>
         <tbody>
@@ -164,8 +171,11 @@
                         <td>S/ <?= number_format((float) $p->precio_venta, 2) ?></td>
                         <td><?= number_format((float) $p->margen_porcentaje, 1) ?>%</td>
                         <td><?= number_format((float) $p->stock, 2) ?></td>
+                        <td><?= number_format($p->stock_vigente, 2) ?></td>
+                        <td<?= $p->stock_vencido > 0 ? ' style="color:#dc3545;font-weight:bold;"' : '' ?>><?= number_format($p->stock_vencido, 2) ?></td>
                         <td><?= number_format((float) $p->stock_minimo, 2) ?></td>
-                        <td>S/ <?= number_format((float) $p->valor_inventario, 2) ?></td>
+                        <td<?= $p->prox_vencimiento && $p->prox_vencimiento->isPast() ? ' style="color:#dc3545;font-weight:bold;"' : '' ?>><?= $p->prox_vencimiento ? $p->prox_vencimiento->format('d/m/Y') : '-' ?></td>
+                        <td>S/ <?= number_format((float) $p->stock * (float) $p->precio_compra, 2) ?></td>
                         <td>
                             <span class="badge badge-<?= strtolower($p->estado_stock) ?>">
                                 <?= h($p->estado_stock) ?>
@@ -175,14 +185,14 @@
                 <?php endforeach; ?>
             <?php else: ?>
                 <tr>
-                    <td colspan="11" class="muted" style="text-align:center; padding: 14px;">No hay productos para mostrar.</td>
+                    <td colspan="14" class="muted" style="text-align:center; padding: 14px;">No hay productos para mostrar.</td>
                 </tr>
             <?php endif; ?>
         </tbody>
     </table>
 
     <div class="footer">
-        Consultorio Ginecológico JYZA &mdash; Reporte generado automáticamente
+        Reporte de inventario generado automáticamente
     </div>
 </body>
 </html>

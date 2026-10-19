@@ -1,5 +1,7 @@
 <div class="container-fluid py-5" style="background: #f8f9fa; min-height: 100vh;">
 
+    <?= $this->Flash->render() ?>
+
     <div class="row justify-content-center">
         <div class="col-lg-11">
             <!-- HEADER -->

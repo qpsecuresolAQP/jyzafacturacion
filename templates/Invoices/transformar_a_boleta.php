@@ -6,6 +6,7 @@
  */
 ?>
 <div class="container-fluid px-4 py-3">
+    <?= $this->Flash->render() ?>
     <div class="mb-4">
         <h3 class="text-info mb-2"><i class="fas fa-exchange-alt"></i> Convertir Nota de Venta a Boleta</h3>
         <div class="bg-light border rounded p-3 d-flex flex-wrap gap-4">

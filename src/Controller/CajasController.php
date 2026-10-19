@@ -166,6 +166,99 @@ $this->set(compact(
     'userIdActual'
 ));    }
 
+    /**
+     * Totales de una caja, únicos para la pantalla, el PDF y el cierre para que
+     * siempre muestren las mismas cifras.
+     *
+     * Por método de pago: ventas cobradas (sin comprobantes anulados) + ingresos
+     * externos = ingresos brutos; menos los gastos = neto. Los reembolsos por
+     * anulación NO se restan: el cobro original ya se excluyó al ignorar los
+     * movimientos de comprobantes ANULADOS (restarlos otra vez duplicaría el descuento).
+     *
+     * @param \App\Model\Entity\Caja $caja Con CajaMovimientos => Invoices cargados
+     */
+    private function calcularTotalesCaja($caja): array
+    {
+        $metodos = ['EFECTIVO' => 'Efectivo', 'YAPE' => 'Yape', 'TARJETA' => 'Tarjeta', 'TRANSFERENCIA' => 'Transferencia', 'PLIN' => 'Plin', 'OTROS' => 'Otros'];
+        $ingresos = array_fill_keys(array_keys($metodos), 0.0);
+        $neto = $ingresos;
+
+        $normalizar = function ($metodo) use ($metodos): string {
+            $m = strtoupper(trim((string) ($metodo ?? 'EFECTIVO')));
+
+            return isset($metodos[$m]) ? $m : 'EFECTIVO';
+        };
+
+        foreach ($caja->caja_movimientos as $mov) {
+            if (!empty($mov->invoice) && $mov->invoice->estado === 'ANULADO') {
+                continue;
+            }
+            $m = strtoupper(trim((string) $mov->metodo_pago));
+            if (isset($metodos[$m])) {
+                $ingresos[$m] += (float) $mov->monto_recibido;
+            }
+        }
+        $ventasEfectivo = $ingresos['EFECTIVO'];
+        $ingresosExternosEfectivo = 0.0;
+        $gastosEfectivo = 0.0;
+
+        $ingresosExternos = $this->fetchTable('CajaIngresos')->find()
+            ->where(['caja_id' => $caja->id])->order(['created' => 'DESC'])->all();
+        foreach ($ingresosExternos as $ing) {
+            $m = $normalizar($ing->metodo_pago);
+            $ingresos[$m] += (float) $ing->monto;
+            if ($m === 'EFECTIVO') {
+                $ingresosExternosEfectivo += (float) $ing->monto;
+            }
+        }
+
+        $CajaEgresos = $this->fetchTable('CajaEgresos');
+        $egresosExternos = $CajaEgresos->find()
+            ->where(['caja_id' => $caja->id, 'tipo' => 'GASTO'])->order(['created' => 'DESC'])->all();
+        $reembolsosAnulacion = $CajaEgresos->find()
+            ->where(['caja_id' => $caja->id, 'tipo' => 'REEMBOLSO_ANULACION'])->order(['created' => 'DESC'])->all();
+
+        $neto = $ingresos;
+        foreach ($egresosExternos as $egr) {
+            $m = $normalizar($egr->metodo_pago);
+            $neto[$m] -= (float) $egr->monto;
+            if ($m === 'EFECTIVO') {
+                $gastosEfectivo += (float) $egr->monto;
+            }
+        }
+
+        $totalGeneralIngresos = array_sum($ingresos);
+        $totalGeneral = array_sum($neto);
+
+        return [
+            'totalEfectivo' => $neto['EFECTIVO'],
+            'totalYape' => $neto['YAPE'],
+            'totalTarjeta' => $neto['TARJETA'],
+            'totalTransferencia' => $neto['TRANSFERENCIA'],
+            'totalPlin' => $neto['PLIN'],
+            'totalOtros' => $neto['OTROS'],
+            'totalGeneral' => $totalGeneral,
+            'totalEfectivoIngresos' => $ingresos['EFECTIVO'],
+            'totalYapeIngresos' => $ingresos['YAPE'],
+            'totalTarjetaIngresos' => $ingresos['TARJETA'],
+            'totalTransferenciaIngresos' => $ingresos['TRANSFERENCIA'],
+            'totalPlinIngresos' => $ingresos['PLIN'],
+            'totalOtrosIngresos' => $ingresos['OTROS'],
+            'totalGeneralIngresos' => $totalGeneralIngresos,
+            'ingresosExternos' => $ingresosExternos,
+            'totalIngresosExternos' => (float) $ingresosExternos->sumOf('monto'),
+            'egresosExternos' => $egresosExternos,
+            'totalEgresosExternos' => (float) $egresosExternos->sumOf('monto'),
+            'reembolsosAnulacion' => $reembolsosAnulacion,
+            'totalReembolsosAnulacion' => (float) $reembolsosAnulacion->sumOf('monto'),
+            'ventasEfectivo' => $ventasEfectivo,
+            'ingresosExternosEfectivo' => $ingresosExternosEfectivo,
+            'gastosEfectivo' => $gastosEfectivo,
+            'efectivoEsperadoEnCaja' => (float) $caja->monto_inicial + $neto['EFECTIVO'],
+            'totalEsperadoGeneral' => (float) $caja->monto_inicial + $totalGeneral,
+        ];
+    }
+
     public function view($id)
 {
     $caja = $this->Cajas->get($id, [
@@ -175,116 +268,7 @@ $this->set(compact(
         ],
     ]);
 
-    $totalEfectivo = 0.0;
-    $totalYape = 0.0;
-    $totalTarjeta = 0.0;
-    $totalTransferencia = 0.0;
-    $totalPlin = 0.0;
-    $totalOtros = 0.0;
-
-    foreach ($caja->caja_movimientos as $mov) {
-
-        if (!empty($mov->invoice) && $mov->invoice->estado === 'ANULADO') {
-            continue;
-        }
-
-        if ($mov->metodo_pago === 'EFECTIVO') {
-            $totalEfectivo += (float)$mov->monto_recibido;
-
-        } elseif ($mov->metodo_pago === 'YAPE') {
-            $totalYape += (float)$mov->monto_recibido;
-
-        } elseif ($mov->metodo_pago === 'TARJETA') {
-            $totalTarjeta += (float)$mov->monto_recibido;
-        }
-        elseif ($mov->metodo_pago === 'TRANSFERENCIA') {
-            $totalTransferencia += (float)$mov->monto_recibido;
-        } elseif ($mov->metodo_pago === 'PLIN') {
-            $totalPlin += (float)$mov->monto_recibido;
-        } elseif ($mov->metodo_pago === 'OTROS') {
-            $totalOtros += (float)$mov->monto_recibido;
-        }
-    }
-
-    $totalGeneral =
-        $totalEfectivo +
-        $totalYape +
-        $totalPlin +
-        $totalTransferencia +
-        $totalOtros +
-        $totalTarjeta;
-
-    // DESPUÉS
-    $CajaIngresos = $this->fetchTable('CajaIngresos');
-    $CajaEgresos  = $this->fetchTable('CajaEgresos');
-
-    $ingresosExternos = $CajaIngresos->find()->where(['caja_id' => $id])->order(['created' => 'DESC'])->all();
-    $totalIngresosExternos = (float)$ingresosExternos->sumOf('monto');
-  
-// Totales brutos de ingresos por método (ventas + ingresos externos), sin descontar egresos
-    $totalEfectivoIngresos = $totalEfectivo;
-    $totalYapeIngresos = $totalYape;
-    $totalTarjetaIngresos = $totalTarjeta;
-    $totalTransferenciaIngresos = $totalTransferencia;
-    $totalPlinIngresos = $totalPlin;
-    $totalOtrosIngresos = $totalOtros;
-
-    $totalGeneralIngresos =
-        $totalEfectivoIngresos +
-        $totalYapeIngresos +
-        $totalPlinIngresos +
-        $totalTransferenciaIngresos +
-        $totalOtrosIngresos +
-        $totalTarjetaIngresos;
-
-    $egresosExternos = $CajaEgresos
-        ->find()
-        ->where(['caja_id' => $id, 'tipo' => 'GASTO'])
-        ->order(['created' => 'DESC'])
-        ->all();
-    $totalEgresosExternos = (float)$egresosExternos->sumOf('monto');
-
-    $reembolsosAnulacion = $CajaEgresos
-        ->find()
-        ->where(['caja_id' => $id, 'tipo' => 'REEMBOLSO_ANULACION'])
-        ->order(['created' => 'DESC'])
-        ->all();
-
-    $totalReembolsosAnulacion =
-        (float)$reembolsosAnulacion->sumOf('monto');
-
-    // Descontar solo los GASTOS del método correspondiente. Los egresos de tipo
-    // REEMBOLSO_ANULACION NO se restan aquí: su ingreso original ya fue excluido
-    // arriba (el movimiento de la factura ANULADA no se sumó), así que restarlos
-    // de nuevo duplicaría el descuento y generaría totales negativos.
-    foreach ($CajaEgresos->find()->where(['caja_id' => $id, 'tipo' => 'GASTO'])->all() as $egr) {
-        $metodo = strtoupper(trim((string)($egr->metodo_pago ?? 'EFECTIVO')));
-        $monto  = (float)$egr->monto;
-        match ($metodo) {
-            'YAPE'          => $totalYape          -= $monto,
-            'TARJETA'       => $totalTarjeta       -= $monto,
-            'TRANSFERENCIA' => $totalTransferencia -= $monto,
-            'PLIN'          => $totalPlin          -= $monto,
-            'OTROS'         => $totalOtros         -= $monto,
-            default         => $totalEfectivo      -= $monto,
-        };
-    }
-
-
-
-    // Recalcular total general (neto de egresos)
-    $totalGeneral =
-        $totalEfectivo +
-        $totalYape +
-        $totalPlin +
-        $totalTransferencia +
-        $totalOtros +
-        $totalTarjeta;
-
-
-    $efectivoEsperadoEnCaja =
-        (float)$caja->monto_inicial +
-        $totalEfectivo;
+    extract($this->calcularTotalesCaja($caja));
 
     // Distribución del cobro (Laboratorio/Materiales) de las facturas cobradas en esta caja
     $invoiceIdsCaja = array_unique(array_map(
@@ -358,114 +342,8 @@ $this->set(compact(
             ],
         ]);
 
-        $totalEfectivo = 0.0;
-        $totalYape = 0.0;
-        $totalTarjeta = 0.0;
-        $totalTransferencia = 0.0;
-        $totalPlin = 0.0;
-        $totalOtros = 0.0;
-
-        foreach ($caja->caja_movimientos as $mov) {
-            if (!empty($mov->invoice) && $mov->invoice->estado === 'ANULADO') {
-                continue;
-            }
-
-            if ($mov->metodo_pago === 'EFECTIVO') {
-                $totalEfectivo += (float)$mov->monto_recibido;
-            } elseif ($mov->metodo_pago === 'YAPE') {
-                $totalYape += (float)$mov->monto_recibido;
-            } elseif ($mov->metodo_pago === 'TARJETA') {
-                $totalTarjeta += (float)$mov->monto_recibido;
-            } elseif ($mov->metodo_pago === 'TRANSFERENCIA') {
-                $totalTransferencia += (float)$mov->monto_recibido;
-            } elseif ($mov->metodo_pago === 'PLIN') {
-                $totalPlin += (float)$mov->monto_recibido;
-            } elseif ($mov->metodo_pago === 'OTROS') {
-                $totalOtros += (float)$mov->monto_recibido;
-            }
-        }
-
-        $CajaIngresos = $this->fetchTable('CajaIngresos');
-        $CajaEgresos = $this->fetchTable('CajaEgresos');
+        extract($this->calcularTotalesCaja($caja));
         $CajaDenominaciones = $this->fetchTable('CajaDenominaciones');
-
-        $ingresosExternos = $CajaIngresos
-            ->find()
-            ->where(['caja_id' => $id])
-            ->order(['created' => 'DESC'])
-            ->all();
-
-        $totalIngresosExternos = (float)$ingresosExternos->sumOf('monto');
-
-        foreach ($ingresosExternos as $ing) {
-            $metodo = strtoupper(trim((string)($ing->metodo_pago ?? 'EFECTIVO')));
-            $monto = (float)$ing->monto;
-            match ($metodo) {
-                'YAPE'          => $totalYape          += $monto,
-                'TARJETA'       => $totalTarjeta       += $monto,
-                'TRANSFERENCIA' => $totalTransferencia += $monto,
-                'PLIN'          => $totalPlin          += $monto,
-                'OTROS'         => $totalOtros         += $monto,
-                default         => $totalEfectivo      += $monto,
-            };
-        }
-
-        // Totales brutos de ingresos por método (ventas + ingresos externos), sin descontar egresos
-        $totalEfectivoIngresos = $totalEfectivo;
-        $totalYapeIngresos = $totalYape;
-        $totalTarjetaIngresos = $totalTarjeta;
-        $totalTransferenciaIngresos = $totalTransferencia;
-        $totalPlinIngresos = $totalPlin;
-        $totalOtrosIngresos = $totalOtros;
-
-        $totalGeneralIngresos =
-            $totalEfectivoIngresos +
-            $totalYapeIngresos +
-            $totalPlinIngresos +
-            $totalTransferenciaIngresos +
-            $totalOtrosIngresos +
-            $totalTarjetaIngresos;
-
-        $egresosExternos = $CajaEgresos
-            ->find()
-            ->where(['caja_id' => $id, 'tipo' => 'GASTO'])
-            ->order(['created' => 'DESC'])
-            ->all();
-
-        $totalEgresosExternos = (float)$egresosExternos->sumOf('monto');
-
-        $reembolsosAnulacion = $CajaEgresos
-            ->find()
-            ->where(['caja_id' => $id, 'tipo' => 'REEMBOLSO_ANULACION'])
-            ->order(['created' => 'DESC'])
-            ->all();
-
-        $totalReembolsosAnulacion = (float)$reembolsosAnulacion->sumOf('monto');
-
-
-        // Descontar solo los GASTOS del método correspondiente (ver explicación en view()):
-        // los REEMBOLSO_ANULACION no se restan porque su ingreso original ya fue
-        // excluido al no sumar los movimientos de facturas ANULADAS.
-        foreach ($CajaEgresos->find()->where(['caja_id' => $id, 'tipo' => 'GASTO'])->all() as $egr) {
-            $metodo = strtoupper(trim((string)($egr->metodo_pago ?? 'EFECTIVO')));
-            $monto = (float)$egr->monto;
-            match ($metodo) {
-                'YAPE'          => $totalYape          -= $monto,
-                'TARJETA'       => $totalTarjeta       -= $monto,
-                'TRANSFERENCIA' => $totalTransferencia -= $monto,
-                'PLIN'          => $totalPlin          -= $monto,
-                'OTROS'         => $totalOtros         -= $monto,
-                default         => $totalEfectivo      -= $monto,
-            };
-        }
-
-        $totalGeneral =
-            $totalEfectivo +
-            $totalYape +
-            $totalPlin +
-            $totalTransferencia +
-            $totalOtros +
-            $totalTarjeta;
 
         // Obtener denominaciones de APERTURA y CIERRE
         $denominacionesApertura = $CajaDenominaciones
@@ -482,15 +360,6 @@ $this->set(compact(
 
         $totalApertura = (float)$denominacionesApertura->sumOf('subtotal');
         $totalCierre = (float)$denominacionesCierre->sumOf('subtotal');
-
-        $efectivoEsperadoEnCaja =
-            (float)$caja->monto_inicial +
-            $totalEfectivo;
-
-        // Total esperado considerando todos los métodos de pago (efectivo + digitales)
-        $totalEsperadoGeneral =
-            (float)$caja->monto_inicial +
-            $totalGeneral;
 
         // Generar PDF
         $this->viewBuilder()
@@ -516,6 +385,9 @@ $this->set(compact(
             'totalGeneralIngresos',
             'efectivoEsperadoEnCaja',
             'totalEsperadoGeneral',
+            'ventasEfectivo',
+            'ingresosExternosEfectivo',
+            'gastosEfectivo',
             'ingresosExternos',
             'totalIngresosExternos',
             'egresosExternos',
@@ -623,7 +495,7 @@ $this->set(compact(
    public function cerrar($id)
 {
     $caja = $this->Cajas->get($id, [
-        'contain' => ['CajaMovimientos'],
+        'contain' => ['CajaMovimientos' => ['Invoices']],
     ]);
 
     if (!in_array($caja->estado, ['ABIERTA', 'PAUSADA'], true)) {
@@ -631,16 +503,7 @@ $this->set(compact(
         return $this->redirect(['action' => 'view', $id]);
     }
 
-    $totalEfectivo = 0;
-
-    foreach ($caja->caja_movimientos as $mov) {
-
-        if ($mov->metodo_pago === 'EFECTIVO') {
-            $totalEfectivo += (float)$mov->monto_recibido;
-        }
-    }
-
-    $esperado = (float)$caja->monto_inicial + $totalEfectivo;
+    $esperado = (float) $this->calcularTotalesCaja($caja)['efectivoEsperadoEnCaja'];
 
     if ($this->request->is(['post', 'put'])) {
 

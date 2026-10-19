@@ -117,16 +117,11 @@
                     ]) ?>
                 </div>
 
-                <!-- Stock -->
+                <!-- Stock: empieza en 0 y se carga por Ingreso de Mercadería (con lote y vencimiento) -->
                 <div class="col-md-4 mb-3">
-                    <?= $this->Form->control('stock', [
-                        'label'    => 'Stock',
-                        'class'    => 'form-control',
-                        'type'     => 'number',
-                        'step'     => '0.01',
-                        'min'      => '0',
-                        'required' => true
-                    ]) ?>
+                    <label class="form-label">Stock inicial</label>
+                    <input type="text" class="form-control" value="0" readonly disabled>
+                    <small class="text-muted">Cárguelo con un Ingreso de Mercadería, indicando lote y vencimiento.</small>
                 </div>
 
                 <!-- Stock mínimo -->
@@ -148,6 +143,19 @@
                         'type'    => 'checkbox',
                         'checked' => true
                     ]) ?>
+                </div>
+
+                <!-- Exige vencimiento -->
+                <div class="col-md-12 mb-3">
+                    <?= $this->Form->control('requiere_vencimiento', [
+                        'label'   => 'Controla vencimiento',
+                        'type'    => 'checkbox',
+                        'checked' => $producto->requiere_vencimiento ?? true,
+                    ]) ?>
+                    <small class="text-muted">
+                        Si está marcado, al ingresar mercadería es obligatorio indicar el número de lote y la fecha de vencimiento
+                        (medicamentos y similares). Desmárquelo en productos que no vencen.
+                    </small>
                 </div>
 
                 <!-- Botones -->

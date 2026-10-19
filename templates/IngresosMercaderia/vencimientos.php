@@ -3,6 +3,7 @@
  * @var \App\View\AppView $this
  * @var array $filas
  * @var array $resumen
+ * @var array $valores
  * @var int $diasProximo
  * @var string $filtro
  * @var string $searchTerm
@@ -36,7 +37,8 @@ $qsBase = ['dias' => $diasProximo, 'search' => $searchTerm];
             <div class="card border-danger">
                 <div class="card-body text-center">
                     <h6 class="text-muted mb-1"><i class="fas fa-times-circle text-danger"></i> Vencidos</h6>
-                    <h3 class="text-danger mb-0"><?= (int) $resumen['vencido'] ?></h3>
+                    <h3 class="text-danger mb-0"><?= (int) $resumen['vencido'] ?> <small class="fs-6">lote(s)</small></h3>
+                    <small class="text-muted">S/ <?= number_format($valores['vencido'], 2) ?> a costo</small>
                 </div>
             </div>
         </div>
@@ -44,7 +46,8 @@ $qsBase = ['dias' => $diasProximo, 'search' => $searchTerm];
             <div class="card border-warning">
                 <div class="card-body text-center">
                     <h6 class="text-muted mb-1"><i class="fas fa-exclamation-triangle text-warning"></i> Por vencer (≤ <?= (int) $diasProximo ?> días)</h6>
-                    <h3 class="text-warning mb-0"><?= (int) $resumen['proximo'] ?></h3>
+                    <h3 class="text-warning mb-0"><?= (int) $resumen['proximo'] ?> <small class="fs-6">lote(s)</small></h3>
+                    <small class="text-muted">S/ <?= number_format($valores['proximo'], 2) ?> a costo</small>
                 </div>
             </div>
         </div>
@@ -52,7 +55,8 @@ $qsBase = ['dias' => $diasProximo, 'search' => $searchTerm];
             <div class="card border-success">
                 <div class="card-body text-center">
                     <h6 class="text-muted mb-1"><i class="fas fa-check-circle text-success"></i> Vigentes</h6>
-                    <h3 class="text-success mb-0"><?= (int) $resumen['vigente'] ?></h3>
+                    <h3 class="text-success mb-0"><?= (int) $resumen['vigente'] ?> <small class="fs-6">lote(s)</small></h3>
+                    <small class="text-muted">S/ <?= number_format($valores['vigente'], 2) ?> a costo</small>
                 </div>
             </div>
         </div>
@@ -89,9 +93,8 @@ $qsBase = ['dias' => $diasProximo, 'search' => $searchTerm];
 
     <div class="alert alert-light border small">
         <i class="fas fa-info-circle"></i>
-        "Cant. ingresada" es lo que entró en ese lote/vencimiento. "Stock actual" es el total del producto hoy
-        (el sistema no lleva stock separado por lote): si el stock actual es menor que lo ingresado en un lote vencido,
-        probablemente ya se vendió o consumió parte.
+        Se listan los lotes que todavía tienen stock. Las ventas descuentan primero el lote que vence antes y
+        nunca venden lotes vencidos: para retirarlos, registre un egreso de stock eligiendo ese lote.
     </div>
 
     <div class="card">
@@ -106,14 +109,15 @@ $qsBase = ['dias' => $diasProximo, 'search' => $searchTerm];
                         <th class="text-end">Días</th>
                         <th>Estado</th>
                         <th class="text-end">Cant. ingresada</th>
-                        <th class="text-end">Stock actual</th>
+                        <th class="text-end">Stock del lote</th>
+                        <th class="text-end">Valor a costo</th>
                         <th>Proveedor</th>
                         <th class="text-center">Ingreso</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($filas)): ?>
-                        <tr><td colspan="10" class="text-center text-muted py-4">No hay lotes con fecha de vencimiento para este filtro.</td></tr>
+                        <tr><td colspan="11" class="text-center text-muted py-4">No hay lotes con stock y fecha de vencimiento para este filtro.</td></tr>
                     <?php else: ?>
                         <?php foreach ($filas as $f): ?>
                             <?php $b = $badge[$f['estado']]; ?>
@@ -136,12 +140,16 @@ $qsBase = ['dias' => $diasProximo, 'search' => $searchTerm];
                                     <span class="badge <?= $b['cls'] ?>"><i class="fas <?= $b['icon'] ?>"></i> <?= $b['txt'] ?></span>
                                 </td>
                                 <td class="text-end"><?= $this->Number->format($f['cantidad_ingresada']) ?></td>
-                                <td class="text-end <?= $f['stock_actual'] <= 0 ? 'text-muted' : '' ?>">
-                                    <?= $this->Number->format($f['stock_actual']) ?>
-                                </td>
+                                <td class="text-end fw-bold"><?= $this->Number->format($f['stock_lote']) ?></td>
+                                <td class="text-end">S/ <?= number_format($f['valor'], 2) ?></td>
                                 <td><?= h($f['proveedor']) ?></td>
-                                <td class="text-center">
-                                    <?= $this->Html->link('#' . $f['ingreso_id'], ['action' => 'view', $f['ingreso_id']], ['class' => 'btn btn-outline-info btn-sm']) ?>
+                                <td class="text-center text-nowrap">
+                                    <?php if ($f['ingreso_id']): ?>
+                                        <?= $this->Html->link('#' . $f['ingreso_id'], ['action' => 'view', $f['ingreso_id']], ['class' => 'btn btn-outline-info btn-sm', 'title' => 'Ver ingreso']) ?>
+                                    <?php endif; ?>
+                                    <?php if ($f['estado'] === 'vencido' && $this->Permisos->tiene('ProductoMovimientos', 'add')): ?>
+                                        <?= $this->Html->link('<i class="fas fa-trash-alt"></i> Dar de baja', ['controller' => 'ProductoMovimientos', 'action' => 'add', $f['producto_id'], '?' => ['tipo' => 'egreso', 'motivo' => 'VENCIDO', 'lote' => $f['lote_id']]], ['escape' => false, 'class' => 'btn btn-outline-danger btn-sm', 'title' => 'Dar de baja este lote vencido']) ?>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

@@ -111,12 +111,13 @@ $hoy = date('Y-m-d\TH:i');
                     <input type="number" id="in-precio" class="form-control" step="0.0001" min="0">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold">Lote <span class="text-muted fw-normal">(opc.)</span></label>
+                    <label class="form-label fw-semibold">Lote <span class="text-muted fw-normal" id="lote-oblig">(opc.)</span></label>
                     <input type="text" id="in-lote" class="form-control" maxlength="50">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold">Vencimiento <span class="text-muted fw-normal">(opc.)</span></label>
+                    <label class="form-label fw-semibold">Vencimiento <span class="text-muted fw-normal" id="venc-oblig">(opc.)</span></label>
                     <input type="date" id="in-vencimiento" class="form-control">
+                    <small id="aviso-vencimiento"></small>
                 </div>
                 <div class="col-12">
                     <button type="button" id="btn-add-item" class="btn btn-success btn-sm"><i class="fas fa-plus"></i> Agregar producto</button>
@@ -238,6 +239,7 @@ $hoy = date('Y-m-d\TH:i');
         inputBuscar.value = p.nombre;
         resultados.innerHTML = '';
         selInfo.textContent = 'Unidad: ' + p.unidad + ' · Stock actual: ' + p.stock;
+        marcarObligatoriedad(!!p.requiere_vencimiento);
         // precio_compra ya viene CON IGV, y el campo pide el precio con IGV.
         if (!inPrecio.value && p.precio_compra > 0) inPrecio.value = p.precio_compra;
         inCantidad.focus();
@@ -247,13 +249,77 @@ $hoy = date('Y-m-d\TH:i');
         if (!resultados.contains(e.target) && e.target !== inputBuscar) resultados.innerHTML = '';
     });
 
+    const DIAS_ALERTA = 90;
+    const avisoVenc = document.getElementById('aviso-vencimiento');
+
+    // Productos que controlan vencimiento: lote y fecha obligatorios.
+    function marcarObligatoriedad(obligatorio) {
+        const marca = obligatorio ? '(obligatorio)' : '(opc.)';
+        const clase = obligatorio ? 'text-danger fw-normal' : 'text-muted fw-normal';
+        ['lote-oblig', 'venc-oblig'].forEach(function (id) {
+            const el = document.getElementById(id);
+            el.textContent = marca;
+            el.className = clase;
+        });
+    }
+
+    function diasHasta(valor) {
+        const partes = valor.split('-');
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        return Math.round((new Date(partes[0], partes[1] - 1, partes[2]) - hoy) / 86400000);
+    }
+
+    inVenc.addEventListener('input', function () {
+        if (!inVenc.value) { avisoVenc.textContent = ''; return; }
+        const dias = diasHasta(inVenc.value);
+        if (dias < 0) {
+            avisoVenc.className = 'text-danger';
+            avisoVenc.textContent = 'Ya venció: no se puede ingresar.';
+        } else if (dias <= DIAS_ALERTA) {
+            avisoVenc.className = 'text-warning';
+            avisoVenc.textContent = 'Atención: vence en ' + dias + ' día(s).';
+        } else {
+            avisoVenc.textContent = '';
+        }
+    });
+
     btnAdd.addEventListener('click', function () {
         if (!selProducto) { alert('Selecciona un producto de la lista.'); return; }
+        if (selProducto.requiere_vencimiento && (!inLote.value.trim() || !inVenc.value)) {
+            alert('"' + selProducto.nombre + '" controla vencimiento: indique el número de lote y la fecha de vencimiento.');
+            return;
+        }
+        if (inVenc.value && diasHasta(inVenc.value) < 0) {
+            alert('La fecha de vencimiento ya pasó: no se puede ingresar mercadería vencida.');
+            return;
+        }
         const cant = parseFloat(inCantidad.value || 0);
         const precioConIgv = parseFloat(inPrecio.value || 0);
         if (cant <= 0) { alert('Ingresa una cantidad mayor a 0.'); return; }
         if (precioConIgv < 0) { alert('El precio no puede ser negativo.'); return; }
 
+        agregarLinea({
+            producto_id: selProducto.id,
+            nombre: selProducto.nombre,
+            cantidad: cant,
+            precio: precioConIgv,
+            lote: inLote.value.trim(),
+            fecha_vencimiento: inVenc.value
+        });
+
+        // Limpiar entrada
+        selProducto = null; selId.value = '';
+        inputBuscar.value = ''; inCantidad.value = ''; inPrecio.value = '';
+        inLote.value = ''; inVenc.value = ''; selInfo.textContent = ''; avisoVenc.textContent = '';
+        marcarObligatoriedad(false);
+        inputBuscar.focus();
+    });
+
+    // Agrega una línea a la tabla (también se usa para recuperar las líneas
+    // cuando el servidor rechaza el ingreso y devuelve el formulario).
+    function agregarLinea(l) {
+        const cant = l.cantidad;
+        const precioConIgv = l.precio;
         // El precio ingresado es CON IGV; se calcula el neto hacia atrás.
         const tot = Math.round(cant * precioConIgv * 100) / 100;
         const sub = Math.round(cant * (precioConIgv / (1 + IGV_PCT)) * 100) / 100;
@@ -265,8 +331,8 @@ $hoy = date('Y-m-d\TH:i');
         tr.dataset.igv = igv;
         tr.dataset.tot = tot;
         tr.innerHTML = `
-            <td>${escapeHtml(selProducto.nombre)}
-                <input type="hidden" name="items[${i}][producto_id]" value="${selProducto.id}">
+            <td>${escapeHtml(l.nombre)}
+                <input type="hidden" name="items[${i}][producto_id]" value="${l.producto_id}">
             </td>
             <td>${money(cant)}<input type="hidden" name="items[${i}][cantidad]" value="${cant}"></td>
             <td>${money(precioConIgv)}<input type="hidden" name="items[${i}][precio_unitario]" value="${precioConIgv}"></td>
@@ -274,23 +340,17 @@ $hoy = date('Y-m-d\TH:i');
             <td class="text-end">${money(igv)}</td>
             <td class="text-end">${money(tot)}</td>
             <td class="small">
-                ${escapeHtml(inLote.value || '—')}<br>${inVenc.value || ''}
-                <input type="hidden" name="items[${i}][lote]" value="${escapeHtml(inLote.value)}">
-                <input type="hidden" name="items[${i}][fecha_vencimiento]" value="${inVenc.value}">
+                ${escapeHtml(l.lote || '—')}<br>${escapeHtml(l.fecha_vencimiento || '')}
+                <input type="hidden" name="items[${i}][lote]" value="${escapeAttr(l.lote)}">
+                <input type="hidden" name="items[${i}][fecha_vencimiento]" value="${escapeAttr(l.fecha_vencimiento)}">
             </td>
             <td><button type="button" class="btn btn-danger btn-sm btn-quitar"><i class="fas fa-trash"></i></button></td>
         `;
         tr.querySelector('.btn-quitar').addEventListener('click', () => { tr.remove(); recalc(); });
         if (filaVacia) filaVacia.style.display = 'none';
         itemsBody.appendChild(tr);
-
-        // Limpiar entrada
-        selProducto = null; selId.value = '';
-        inputBuscar.value = ''; inCantidad.value = ''; inPrecio.value = '';
-        inLote.value = ''; inVenc.value = ''; selInfo.textContent = '';
-        inputBuscar.focus();
         recalc();
-    });
+    }
 
     function recalc() {
         let sub = 0, igv = 0, tot = 0;
@@ -311,6 +371,10 @@ $hoy = date('Y-m-d\TH:i');
         return d.innerHTML;
     }
 
+    function escapeAttr(s) {
+        return escapeHtml(s).replace(/"/g, '&quot;');
+    }
+
     form.addEventListener('submit', function (e) {
         if (!itemsBody.querySelector('tr[data-sub]')) {
             e.preventDefault();
@@ -320,6 +384,10 @@ $hoy = date('Y-m-d\TH:i');
         btnGuardar.disabled = true;
         btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
     });
+
+    // Líneas que el usuario ya había cargado cuando el servidor rechazó el ingreso.
+    const ITEMS_PREVIOS = <?= json_encode($itemsPrevios ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    ITEMS_PREVIOS.forEach(agregarLinea);
 
     window.addEventListener('pageshow', function () {
         btnGuardar.disabled = false;

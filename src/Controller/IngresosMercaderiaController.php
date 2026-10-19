@@ -74,7 +74,9 @@ class IngresosMercaderiaController extends AppController
 
         if ($this->request->is('post')) {
             $data = $this->request->getData();
-            $items = $data['items'] ?? [];
+            $items = (array) ($data['items'] ?? []);
+            // Si algo falla, las líneas que el usuario ya cargó se devuelven al formulario.
+            $itemsForm = $this->lineasParaFormulario($items);
 
             // IGV configurable; por defecto 18%.
             $igvPct = 0.18;
@@ -122,7 +124,7 @@ class IngresosMercaderiaController extends AppController
 
             if (empty($lineasValidas)) {
                 $this->Flash->error('Agrega al menos un producto al ingreso.');
-                return $this->prepararFormulario($ingreso);
+                return $this->prepararFormulario($ingreso, $itemsForm);
             }
 
             $subtotal = round($subtotal, 2);
@@ -147,76 +149,145 @@ class IngresosMercaderiaController extends AppController
 
             if ($ingreso->getErrors()) {
                 $this->Flash->error('Revisa los datos de la cabecera del ingreso.');
-                return $this->prepararFormulario($ingreso);
+                return $this->prepararFormulario($ingreso, $itemsForm);
             }
 
             $Productos = $this->IngresosMercaderia->IngresosMercaderiaDetalle->Productos;
             $ProductoMovimientos = $this->fetchTable('ProductoMovimientos');
+            $ProductoLotes = $this->fetchTable('ProductoLotes');
             $conn = $this->IngresosMercaderia->getConnection();
 
-            $ok = $conn->transactional(function () use ($ingreso, $lineasValidas, $Productos, $ProductoMovimientos) {
-                if (!$this->IngresosMercaderia->save($ingreso)) {
-                    return false;
-                }
+            $avisosVencimiento = [];
+            $mensajeError = null;
 
-                foreach ($lineasValidas as $linea) {
-                    $producto = $Productos->get($linea['producto_id']);
-
-                    $detalle = $this->IngresosMercaderia->IngresosMercaderiaDetalle->newEntity([
-                        'ingreso_mercaderia_id' => $ingreso->id,
-                        'producto_id' => $linea['producto_id'],
-                        'cantidad' => $linea['cantidad'],
-                        'precio_unitario' => $linea['precio_unitario'],
-                        'subtotal' => $linea['subtotal'],
-                        'igv' => $linea['igv'],
-                        'total' => $linea['total'],
-                        'lote' => $linea['lote'],
-                        'fecha_vencimiento' => $linea['fecha_vencimiento'],
-                    ]);
-                    if (!$this->IngresosMercaderia->IngresosMercaderiaDetalle->save($detalle)) {
+            try {
+                $ok = $conn->transactional(function () use ($ingreso, $lineasValidas, $Productos, $ProductoMovimientos, $ProductoLotes, &$avisosVencimiento) {
+                    if (!$this->IngresosMercaderia->save($ingreso)) {
                         return false;
                     }
 
-                    $stockAnterior = (float) $producto->stock;
-                    $stockNuevo = $stockAnterior + $linea['cantidad'];
+                    foreach ($lineasValidas as $linea) {
+                        $producto = $Productos->get($linea['producto_id']);
 
-                    // Suma stock y actualiza el precio de compra al último
-                    // costo unitario CON IGV (desembolso real por unidad).
-                    $producto = $Productos->patchEntity($producto, [
-                        'stock' => $stockNuevo,
-                        'precio_compra' => $linea['precio_unitario_con_igv'],
-                    ]);
-                    if (!$Productos->save($producto)) {
-                        return false;
+                        $detalle = $this->IngresosMercaderia->IngresosMercaderiaDetalle->newEntity([
+                            'ingreso_mercaderia_id' => $ingreso->id,
+                            'producto_id' => $linea['producto_id'],
+                            'cantidad' => $linea['cantidad'],
+                            'precio_unitario' => $linea['precio_unitario'],
+                            'subtotal' => $linea['subtotal'],
+                            'igv' => $linea['igv'],
+                            'total' => $linea['total'],
+                            'lote' => $linea['lote'],
+                            'fecha_vencimiento' => $linea['fecha_vencimiento'],
+                        ]);
+                        $this->IngresosMercaderia->IngresosMercaderiaDetalle->saveOrFail($detalle);
+
+                        $stockAnterior = (float) $producto->stock;
+
+                        // Cada línea entra por su lote (con número y vencimiento). Un lote
+                        // ya registrado con la misma fecha se suma; con otra fecha se rechaza.
+                        $lote = $ProductoLotes->ingresar(
+                            (int) $linea['producto_id'],
+                            (float) $linea['cantidad'],
+                            $linea['lote'],
+                            $linea['fecha_vencimiento'],
+                            'INGRESO',
+                            (int) $detalle->id,
+                            true
+                        );
+                        $detalle->producto_lote_id = $lote->id;
+                        $this->IngresosMercaderia->IngresosMercaderiaDetalle->saveOrFail($detalle);
+                        $stockNuevo = (float) $Productos->get($linea['producto_id'])->stock;
+
+                        $dias = $lote->dias_para_vencer;
+                        if ($dias !== null && $dias <= \App\Model\Table\ProductoLotesTable::DIAS_ALERTA_VENCIMIENTO) {
+                            $avisosVencimiento[] = sprintf('%s (lote %s) vence en %d día(s)', $producto->nombre, $lote->lote ?: 's/n', $dias);
+                        }
+
+                        // El costo del producto pasa a ser el de esta compra (CON IGV).
+                        // Una bonificación (precio 0) suma stock pero no toca el costo.
+                        if ($linea['precio_unitario_con_igv'] > 0) {
+                            $producto = $Productos->patchEntity($Productos->get($linea['producto_id']), [
+                                'precio_compra' => $linea['precio_unitario_con_igv'],
+                            ]);
+                            $Productos->saveOrFail($producto);
+                        }
+
+                        $ProductoMovimientos->registrar([
+                            'producto_id' => $linea['producto_id'],
+                            'usuario_id' => $ingreso->usuario_id,
+                            'ingreso_mercaderia_id' => $ingreso->id,
+                            'tipo' => 'ingreso',
+                            'motivo_codigo' => 'COMPRA',
+                            'cantidad' => $linea['cantidad'],
+                            'stock_anterior' => $stockAnterior,
+                            'stock_nuevo' => $stockNuevo,
+                            'motivo' => 'Ingreso de mercadería ' . ($ingreso->serie ? $ingreso->serie . '-' : '') . ($ingreso->numero ?: '#' . $ingreso->id),
+                            'lotes' => [(int) $lote->id => (float) $linea['cantidad']],
+                        ]);
                     }
 
-                    $mov = $ProductoMovimientos->newEntity([
-                        'producto_id' => $linea['producto_id'],
-                        'usuario_id' => $ingreso->usuario_id,
-                        'ingreso_mercaderia_id' => $ingreso->id,
-                        'tipo' => 'ingreso',
-                        'cantidad' => $linea['cantidad'],
-                        'stock_anterior' => $stockAnterior,
-                        'stock_nuevo' => $stockNuevo,
-                        'motivo' => 'Ingreso de mercadería ' . ($ingreso->serie ? $ingreso->serie . '-' : '') . ($ingreso->numero ?: '#' . $ingreso->id),
-                    ]);
-                    if (!$ProductoMovimientos->save($mov)) {
-                        return false;
-                    }
-                }
-
-                return true;
-            });
+                    return true;
+                });
+            } catch (\RuntimeException $e) {
+                $ok = false;
+                $mensajeError = $e->getMessage();
+            }
 
             if ($ok) {
                 $this->Flash->success('Ingreso de mercadería registrado. Stock actualizado.');
+                if (!empty($avisosVencimiento)) {
+                    $this->Flash->warning(
+                        'Atención, mercadería próxima a vencer (menos de '
+                        . \App\Model\Table\ProductoLotesTable::DIAS_ALERTA_VENCIMIENTO . ' días): '
+                        . implode('; ', $avisosVencimiento) . '.'
+                    );
+                }
                 return $this->redirect(['action' => 'view', $ingreso->id]);
             }
 
-            $this->Flash->error('No se pudo registrar el ingreso.');
+            $this->Flash->error($mensajeError ?? 'No se pudo registrar el ingreso.');
+
+            return $this->prepararFormulario($ingreso, $itemsForm);
         }
 
         return $this->prepararFormulario($ingreso);
+    }
+
+    /**
+     * Convierte las líneas enviadas por el formulario al formato que el
+     * formulario necesita para volver a dibujarlas si el ingreso es rechazado.
+     */
+    private function lineasParaFormulario(array $items): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(fn($r) => (int) ($r['producto_id'] ?? 0), $items))));
+        if (!$ids) {
+            return [];
+        }
+
+        $productos = $this->IngresosMercaderia->IngresosMercaderiaDetalle->Productos->find()
+            ->where(['Productos.id IN' => $ids])
+            ->all()
+            ->indexBy('id')
+            ->toArray();
+
+        $lineas = [];
+        foreach ($items as $row) {
+            $producto = $productos[(int) ($row['producto_id'] ?? 0)] ?? null;
+            if (!$producto || (float) ($row['cantidad'] ?? 0) <= 0) {
+                continue;
+            }
+            $lineas[] = [
+                'producto_id' => (int) $producto->id,
+                'nombre' => $producto->nombre,
+                'cantidad' => (float) $row['cantidad'],
+                'precio' => (float) ($row['precio_unitario'] ?? 0),
+                'lote' => trim((string) ($row['lote'] ?? '')),
+                'fecha_vencimiento' => (string) ($row['fecha_vencimiento'] ?? ''),
+            ];
+        }
+
+        return $lineas;
     }
 
     /**
@@ -236,50 +307,62 @@ class IngresosMercaderiaController extends AppController
 
         $Productos = $this->IngresosMercaderia->IngresosMercaderiaDetalle->Productos;
         $ProductoMovimientos = $this->fetchTable('ProductoMovimientos');
+        $ProductoLotes = $this->fetchTable('ProductoLotes');
         $conn = $this->IngresosMercaderia->getConnection();
 
-        // No permitir anular si algún producto ya no tiene stock suficiente
-        // para revertir (ya se vendió/consumió lo ingresado).
+        // Solo se puede anular si cada lote de este ingreso sigue completo: si
+        // ya se vendió o se dio de baja algo de él, la mercadería ya no está.
+        $lotesPorLinea = [];
         foreach ($ingreso->ingresos_mercaderia_detalle as $linea) {
+            // El lote al que entró la línea (puede compartirse con otras entregas del mismo lote).
+            $lote = $linea->producto_lote_id
+                ? $ProductoLotes->find()->where(['id' => $linea->producto_lote_id])->first()
+                : $ProductoLotes->find()->where(['ingreso_mercaderia_detalle_id' => $linea->id])->first();
             $producto = $Productos->get($linea->producto_id);
-            if ((float) $producto->stock < (float) $linea->cantidad) {
+            $disponible = $lote ? (float) $lote->stock : (float) $producto->stock;
+            if ($disponible < (float) $linea->cantidad) {
                 $this->Flash->error(
-                    'No se puede anular: el producto "' . $producto->nombre .
-                    '" no tiene stock suficiente para revertir el ingreso (se habría vendido o consumido).'
+                    'No se puede anular: del producto "' . $producto->nombre . '"' .
+                    ($linea->lote ? ' (lote ' . $linea->lote . ')' : '') .
+                    ' ya se vendió o se dio de baja parte de lo ingresado.'
                 );
                 return $this->redirect(['action' => 'view', $id]);
             }
+            $lotesPorLinea[$linea->id] = $lote;
         }
 
-        $ok = $conn->transactional(function () use ($ingreso, $Productos, $ProductoMovimientos) {
-            foreach ($ingreso->ingresos_mercaderia_detalle as $linea) {
-                $producto = $Productos->get($linea->producto_id);
-                $stockAnterior = (float) $producto->stock;
-                $stockNuevo = $stockAnterior - (float) $linea->cantidad;
+        try {
+            $ok = $conn->transactional(function () use ($ingreso, $Productos, $ProductoMovimientos, $ProductoLotes, $lotesPorLinea) {
+                foreach ($ingreso->ingresos_mercaderia_detalle as $linea) {
+                    $stockAnterior = (float) $Productos->get($linea->producto_id)->stock;
 
-                $producto = $Productos->patchEntity($producto, ['stock' => $stockNuevo]);
-                if (!$Productos->save($producto)) {
-                    return false;
+                    $lote = $lotesPorLinea[$linea->id];
+                    $usados = $lote
+                        ? $ProductoLotes->descontar((int) $linea->producto_id, (float) $linea->cantidad, true, (int) $lote->id)
+                        : $ProductoLotes->descontar((int) $linea->producto_id, (float) $linea->cantidad, true);
+                    $stockNuevo = (float) $Productos->get($linea->producto_id)->stock;
+
+                    $ProductoMovimientos->registrar([
+                        'producto_id' => $linea->producto_id,
+                        'usuario_id' => $this->Authentication->getIdentity()?->id,
+                        'ingreso_mercaderia_id' => $ingreso->id,
+                        'tipo' => 'egreso',
+                        'motivo_codigo' => 'ANULACION_COMPRA',
+                        'cantidad' => $linea->cantidad,
+                        'stock_anterior' => $stockAnterior,
+                        'stock_nuevo' => $stockNuevo,
+                        'motivo' => 'Anulación de ingreso de mercadería #' . $ingreso->id,
+                        'lotes' => $usados,
+                    ]);
                 }
 
-                $mov = $ProductoMovimientos->newEntity([
-                    'producto_id' => $linea->producto_id,
-                    'usuario_id' => $this->Authentication->getIdentity()?->id,
-                    'ingreso_mercaderia_id' => $ingreso->id,
-                    'tipo' => 'egreso',
-                    'cantidad' => $linea->cantidad,
-                    'stock_anterior' => $stockAnterior,
-                    'stock_nuevo' => $stockNuevo,
-                    'motivo' => 'Anulación de ingreso de mercadería #' . $ingreso->id,
-                ]);
-                if (!$ProductoMovimientos->save($mov)) {
-                    return false;
-                }
-            }
-
-            $ingreso->estado = 'ANULADO';
-            return (bool) $this->IngresosMercaderia->save($ingreso);
-        });
+                $ingreso->estado = 'ANULADO';
+                return (bool) $this->IngresosMercaderia->save($ingreso);
+            });
+        } catch (\RuntimeException $e) {
+            $this->Flash->error($e->getMessage());
+            return $this->redirect(['action' => 'view', $id]);
+        }
 
         if ($ok) {
             $this->Flash->success('Ingreso anulado y stock revertido.');
@@ -291,10 +374,10 @@ class IngresosMercaderiaController extends AppController
     }
 
     /**
-     * Reporte de vencimientos: lista las líneas de ingreso que tienen fecha
-     * de vencimiento, clasificadas por cercanía a esa fecha, con la cantidad
-     * ingresada de ese lote y el stock TOTAL actual del producto como
-     * referencia (no es stock por lote — el sistema no lo lleva).
+     * Reporte de vencimientos: lotes con stock y fecha de vencimiento,
+     * clasificados por cercanía a esa fecha, con el stock real de cada lote
+     * y su valor a costo (stock x precio de compra) para ver cuánto dinero
+     * hay en mercadería vencida o por vencer.
      */
     public function vencimientos()
     {
@@ -306,22 +389,24 @@ class IngresosMercaderiaController extends AppController
         $filtro = (string) $this->request->getQuery('filtro', 'todos');
         $searchTerm = trim((string) $this->request->getQuery('search', ''));
 
-        $Detalle = $this->fetchTable('IngresosMercaderiaDetalle');
-
-        $query = $Detalle->find()
+        $query = $this->fetchTable('ProductoLotes')->find()
             ->contain([
                 'Productos' => ['CategoriasProductos'],
-                'IngresosMercaderia' => ['Proveedores'],
+                // LEFT en toda la cadena: los lotes de movimientos manuales o
+                // devoluciones no vienen de un ingreso de mercadería.
+                'IngresosMercaderiaDetalle' => [
+                    'joinType' => 'LEFT',
+                    'IngresosMercaderia' => [
+                        'joinType' => 'LEFT',
+                        'Proveedores' => ['joinType' => 'LEFT'],
+                    ],
+                ],
             ])
             ->where([
-                'IngresosMercaderiaDetalle.fecha_vencimiento IS NOT' => null,
+                'ProductoLotes.fecha_vencimiento IS NOT' => null,
+                'ProductoLotes.stock >' => 0,
             ])
-            ->order(['IngresosMercaderiaDetalle.fecha_vencimiento' => 'ASC']);
-
-        // Excluir líneas de ingresos anulados.
-        $query->matching('IngresosMercaderia', function ($q) {
-            return $q->where(['IngresosMercaderia.estado' => 'REGISTRADO']);
-        });
+            ->orderBy(['ProductoLotes.fecha_vencimiento' => 'ASC']);
 
         if ($searchTerm !== '') {
             $like = '%' . strtolower($searchTerm) . '%';
@@ -329,20 +414,20 @@ class IngresosMercaderiaController extends AppController
                 return $exp->or([
                     'LOWER(Productos.nombre) LIKE' => $like,
                     'LOWER(Productos.codigo) LIKE' => $like,
-                    'LOWER(IngresosMercaderiaDetalle.lote) LIKE' => $like,
+                    'LOWER(ProductoLotes.lote) LIKE' => $like,
                 ]);
             });
         }
 
-        $lineas = $query->all();
+        $lotes = $query->all();
 
         $limaProximo = $hoy->modify("+{$diasProximo} days");
         $filas = [];
         $resumen = ['vencido' => 0, 'proximo' => 0, 'vigente' => 0];
+        $valores = ['vencido' => 0.0, 'proximo' => 0.0, 'vigente' => 0.0];
 
-        foreach ($lineas as $l) {
-            $venc = $l->fecha_vencimiento; // Cake\I18n\Date
-            $vencInmutable = new \DateTimeImmutable($venc->format('Y-m-d'));
+        foreach ($lotes as $l) {
+            $vencInmutable = new \DateTimeImmutable($l->fecha_vencimiento->format('Y-m-d'));
             $diasRestantes = (int) $hoy->diff($vencInmutable)->format('%r%a');
 
             if ($vencInmutable < $hoy) {
@@ -353,13 +438,18 @@ class IngresosMercaderiaController extends AppController
                 $estado = 'vigente';
             }
 
+            $valor = round((float) $l->stock * (float) ($l->producto->precio_compra ?? 0), 2);
+            $resumen[$estado]++;
+            $valores[$estado] += $valor;
+
             if ($filtro !== 'todos' && $filtro !== $estado) {
                 continue;
             }
 
-            $resumen[$estado]++;
-
+            $ingreso = $l->ingresos_mercaderia_detalle->ingresos_mercaderium ?? null;
             $filas[] = [
+                'lote_id' => $l->id,
+                'producto_id' => $l->producto_id,
                 'producto' => $l->producto->nombre ?? ('Producto #' . $l->producto_id),
                 'codigo' => $l->producto->codigo ?? '',
                 'categoria' => $l->producto->categorias_producto->nombre ?? '—',
@@ -367,19 +457,20 @@ class IngresosMercaderiaController extends AppController
                 'fecha_vencimiento' => $vencInmutable,
                 'dias_restantes' => $diasRestantes,
                 'estado' => $estado,
-                'cantidad_ingresada' => (float) $l->cantidad,
-                'stock_actual' => (float) ($l->producto->stock ?? 0),
-                'ingreso_id' => $l->ingreso_mercaderia_id,
-                'proveedor' => $l->ingresos_mercaderium->proveedore->nombre ?? '—',
-                'fecha_ingreso' => $l->ingresos_mercaderium->fecha_ingreso ?? null,
+                'cantidad_ingresada' => (float) $l->cantidad_inicial,
+                'stock_lote' => (float) $l->stock,
+                'valor' => $valor,
+                'ingreso_id' => $ingreso->id ?? null,
+                'proveedor' => $ingreso->proveedore->nombre ?? '—',
             ];
         }
+        $valores = array_map(fn($v) => round($v, 2), $valores);
 
         if ($this->request->getQuery('export') === 'excel') {
             return $this->exportarVencimientosExcel($filas, $diasProximo, $filtro);
         }
 
-        $this->set(compact('filas', 'resumen', 'diasProximo', 'filtro', 'searchTerm'));
+        $this->set(compact('filas', 'resumen', 'valores', 'diasProximo', 'filtro', 'searchTerm'));
     }
 
     private function exportarVencimientosExcel(array $filas, int $diasProximo, string $filtro)
@@ -388,10 +479,10 @@ class IngresosMercaderiaController extends AppController
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Vencimientos');
 
-        $headers = ['Producto', 'Código', 'Categoría', 'Lote', 'Vencimiento', 'Días', 'Estado', 'Cant. Ingresada', 'Stock Actual', 'Proveedor', 'Ingreso #'];
+        $headers = ['Producto', 'Código', 'Categoría', 'Lote', 'Vencimiento', 'Días', 'Estado', 'Cant. Ingresada', 'Stock del Lote', 'Valor a Costo (S/)', 'Proveedor', 'Ingreso #'];
         $sheet->fromArray($headers, null, 'A1');
-        $sheet->getStyle('A1:K1')->getFont()->setBold(true);
-        $sheet->getStyle('A1:K1')->getFill()
+        $sheet->getStyle('A1:L1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:L1')->getFill()
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FF0DCAF0');
 
@@ -406,13 +497,14 @@ class IngresosMercaderiaController extends AppController
             $sheet->setCellValue("F{$row}", $f['dias_restantes']);
             $sheet->setCellValue("G{$row}", $estadoLabel[$f['estado']] ?? $f['estado']);
             $sheet->setCellValue("H{$row}", $f['cantidad_ingresada']);
-            $sheet->setCellValue("I{$row}", $f['stock_actual']);
-            $sheet->setCellValue("J{$row}", $f['proveedor']);
-            $sheet->setCellValue("K{$row}", $f['ingreso_id']);
+            $sheet->setCellValue("I{$row}", $f['stock_lote']);
+            $sheet->setCellValue("J{$row}", $f['valor']);
+            $sheet->setCellValue("K{$row}", $f['proveedor']);
+            $sheet->setCellValue("L{$row}", $f['ingreso_id'] ?? '-');
             $row++;
         }
 
-        foreach (range('A', 'K') as $col) {
+        foreach (range('A', 'L') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -425,7 +517,7 @@ class IngresosMercaderiaController extends AppController
             'download' => true,
             'name' => $filename,
             'delete' => true,
-        ]);
+        ])->withType('xlsx');
     }
 
     /**
@@ -461,6 +553,7 @@ class IngresosMercaderiaController extends AppController
                 'unidad' => $p->unidad ?: 'NIU',
                 'precio_compra' => (float) $p->precio_compra,
                 'stock' => (float) $p->stock,
+                'requiere_vencimiento' => (bool) $p->requiere_vencimiento,
             ];
         })->toList();
 
@@ -469,7 +562,7 @@ class IngresosMercaderiaController extends AppController
             ->withStringBody(json_encode($data, JSON_UNESCAPED_UNICODE));
     }
 
-    private function prepararFormulario($ingreso)
+    private function prepararFormulario($ingreso, array $itemsPrevios = [])
     {
         $proveedores = $this->IngresosMercaderia->Proveedores
             ->find('list', keyField: 'id', valueField: function ($p) {
@@ -479,7 +572,7 @@ class IngresosMercaderiaController extends AppController
             ->order(['nombre' => 'ASC'])
             ->toArray();
 
-        $this->set(compact('ingreso', 'proveedores'));
+        $this->set(compact('ingreso', 'proveedores', 'itemsPrevios'));
         $this->render('add');
     }
 }

@@ -78,7 +78,12 @@ class ProductosController extends AppController
         $categoriaProductoId = $this->request->getQuery('categoria_producto_id');
 
         if ($this->request->is('post')) {
-            $producto = $this->Productos->patchEntity($producto, $this->request->getData());
+            // El stock no se carga a mano: todo stock vive en un lote, y los lotes
+            // se crean con Ingresos de Mercadería o movimientos de stock.
+            $producto = $this->Productos->patchEntity($producto, $this->request->getData(), [
+                'accessibleFields' => ['stock' => false],
+            ]);
+            $producto->stock = 0;
 
             if ($this->Productos->save($producto)) {
                 $this->Flash->success('El producto fue guardado correctamente.');
@@ -125,7 +130,11 @@ class ProductosController extends AppController
         $producto = $this->Productos->get($id);
 
         if ($this->request->is(['patch', 'post', 'put'])) {
-            $producto = $this->Productos->patchEntity($producto, $this->request->getData());
+            // El stock no se edita a mano: solo cambia por ingresos de mercadería,
+            // ventas y movimientos de stock (ingreso/egreso), que dejan registro.
+            $producto = $this->Productos->patchEntity($producto, $this->request->getData(), [
+                'accessibleFields' => ['stock' => false],
+            ]);
 
             if ($this->Productos->save($producto)) {
                 $this->Flash->success('El producto fue actualizado correctamente.');
@@ -249,12 +258,19 @@ class ProductosController extends AppController
 
     $data = [];
 
+    // Para vender solo cuenta el stock de lotes no vencidos.
+    $vigentes = $this->fetchTable('ProductoLotes')->stockVigentePorProducto(
+        collection($productos)->extract('id')->toList()
+    );
+
     foreach ($productos as $p) {
+        $vigente = $vigentes[$p->id] ?? 0.0;
         $data[] = [
             'id' => $p->id,
             'nombre' => $p->nombre,
             'precio' => (float)$p->precio,
-            'stock' => (float)$p->stock
+            'stock' => $vigente,
+            'vencido' => round((float)$p->stock - $vigente, 2),
         ];
     }
 

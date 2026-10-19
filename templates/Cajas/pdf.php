@@ -190,6 +190,9 @@ $numeroDocumento = 'CAJA-' . $caja->codigo . '-' . ($caja->fecha?->format('Ymd')
         <div class="header-info"><strong>Usuario:</strong> <?= h($caja->user->name ?? $caja->user->username ?? 'N/A') ?></div>
         <div class="header-info"><strong>Fecha:</strong> <?= h($caja->fecha?->format('d/m/Y H:i') ?? date('d/m/Y H:i')) ?></div>
         <div class="header-info"><strong>Estado:</strong> <?= h($caja->estado) ?></div>
+        <?php if ($caja->estado !== 'CERRADA'): ?>
+            <div class="header-info" style="color:#92400e;"><strong>REPORTE PARCIAL: la caja aún no está cerrada. Generado el <?= date('d/m/Y H:i') ?>.</strong></div>
+        <?php endif; ?>
     </div>
 
     <!-- ═════════════════════════════════════════════════════════════════ -->
@@ -459,22 +462,22 @@ $numeroDocumento = 'CAJA-' . $caja->codigo . '-' . ($caja->fecha?->format('Ymd')
             </div>
             <div class="info-row">
                 <span class="info-label">Total Cierre (Denominaciones):</span>
-                <span class="info-value fw-bold">S/ <?= number_format($totalCierre, 2) ?></span>
+                <span class="info-value fw-bold"><?= $caja->estado === 'CERRADA' ? 'S/ ' . number_format($totalCierre, 2) : 'Pendiente (caja abierta)' ?></span>
             </div>
             <div class="info-row">
-                <span class="info-label">Total Movimientos (Efectivo):</span>
-                <span class="info-value fw-bold">S/ <?= number_format($totalEfectivo, 2) ?></span>
+                <span class="info-label">+ Ventas cobradas en efectivo (sin anuladas):</span>
+                <span class="info-value fw-bold">S/ <?= number_format($ventasEfectivo, 2) ?></span>
             </div>
             <div class="info-row">
-                <span class="info-label">+ Ingresos Externos:</span>
-                <span class="info-value fw-bold">S/ <?= number_format($totalIngresosExternos, 2) ?></span>
+                <span class="info-label">+ Ingresos externos en efectivo:</span>
+                <span class="info-value fw-bold">S/ <?= number_format($ingresosExternosEfectivo, 2) ?></span>
             </div>
             <div class="info-row">
-                <span class="info-label">- Egresos Externos (gastos):</span>
-                <span class="info-value fw-bold">S/ <?= number_format($totalEgresosExternos, 2) ?></span>
+                <span class="info-label">- Gastos en efectivo:</span>
+                <span class="info-value fw-bold">S/ <?= number_format($gastosEfectivo, 2) ?></span>
             </div>
             <div class="info-row">
-                <span class="info-label">- Reembolsos por Anulación:</span>
+                <span class="info-label">Reembolsos por anulación (informativo, ya excluidos de las ventas):</span>
                 <span class="info-value fw-bold">S/ <?= number_format($totalReembolsosAnulacion, 2) ?></span>
             </div>
             <div class="info-row" style="border-bottom: 2px solid #4a90e2; margin-top: 8px; padding-top: 8px;">

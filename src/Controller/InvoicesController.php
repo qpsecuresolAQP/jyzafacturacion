@@ -30,16 +30,15 @@ class InvoicesController extends AppController
         $identity = $this->request->getAttribute('identity');
         $userId = $identity ? (int) $identity->getIdentifier() : 0;
 
+        // Consultar, anular, enviar a SUNAT o hacer el resumen diario no requieren
+        // caja abierta (la caja puede estar cerrada con comprobantes aún por enviar).
+        // Solo crear comprobantes y cobrar cuotas la exigen, y lo validan por su cuenta.
         $cajaAbierta = $Cajas->find()
             ->where([
                 'Cajas.estado' => 'ABIERTA',
             ])
             ->order(['Cajas.created' => 'DESC'])
             ->first();
-        if (!$cajaAbierta) {
-            $this->Flash->error('Debe haber una caja abierta antes de gestionar comprobantes.');
-            return $this->redirect(['controller' => 'Cajas', 'action' => 'abrir']);
-        }
 
         $query = $this->Invoices->find()
         ->contain([
@@ -247,6 +246,15 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                 ->order(['nombre' => 'ASC'])
                 ->all()
                 ->toList();
+
+            // En el formulario de venta el stock mostrado es el vendible
+            // (lotes no vencidos); solo para mostrar, no se guarda.
+            $vigentes = $this->fetchTable('ProductoLotes')->stockVigentePorProducto(
+                array_map(fn($p) => $p->id, $productos)
+            );
+            foreach ($productos as $p) {
+                $p->stock = $vigentes[$p->id] ?? 0.0;
+            }
 
             $examenes = $this->fetchTable('Examenes')
                 ->find()
@@ -630,9 +638,15 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                     $cantidadCheck = (float) ($rowCheck['cantidad'] ?? 0);
                     if ($productoIdCheck && $cantidadCheck > 0) {
                         $productoCheck = $this->fetchTable('Productos')->get($productoIdCheck);
-                        if ((float) $productoCheck->stock < $cantidadCheck) {
+                        // Solo cuenta el stock vigente: los lotes vencidos no se pueden vender.
+                        $vigenteCheck = $this->fetchTable('ProductoLotes')->stockVigentePorProducto([$productoIdCheck])[$productoIdCheck] ?? 0.0;
+                        if ($vigenteCheck < $cantidadCheck) {
+                            $vencidoCheck = round((float) $productoCheck->stock - $vigenteCheck, 2);
                             $this->request->getSession()->write('old_invoice_form', $data);
-                            $this->Flash->error('Stock insuficiente para el producto: ' . $productoCheck->nombre);
+                            $this->Flash->error(
+                                'Stock insuficiente para el producto: ' . $productoCheck->nombre .
+                                ' (vigente: ' . $vigenteCheck . ($vencidoCheck > 0 ? ', vencido: ' . $vencidoCheck : '') . ').'
+                            );
                             return $this->redirect(['action' => 'add']);
                         }
                     }
@@ -694,6 +708,9 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                     $tratamientoId = !empty($row['tratamiento_id']) ? (int) $row['tratamiento_id'] : null;
                     $productoId = !empty($row['producto_id']) ? (int) $row['producto_id'] : null;
                     $examenId = !empty($row['examen_id']) ? (int) $row['examen_id'] : null;
+                    $lotesUsados = null;
+                    $stockAntes = 0.0;
+                    $stockDespues = 0.0;
 
                     $descripcion = trim((string) ($row['descripcion'] ?? ''));
                     $precioUnitario = (float) ($row['precio_unitario'] ?? 0);
@@ -760,16 +777,11 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                             $unidad = (string) ($producto->unidad ?: 'NIU');
                         }
 
-                        if ((float) $producto->stock < $cantidad) {
-                            throw new \RuntimeException('Stock insuficiente para el producto: ' . $producto->nombre);
-                        }
-
-                        $producto->stock = (float) $producto->stock - $cantidad;
-
-
-                        if (!$this->fetchTable('Productos')->save($producto)) {
-                            throw new \RuntimeException('No se pudo actualizar stock del producto: ' . $producto->nombre);
-                        }
+                        // Sale de los lotes que vencen antes; nunca de lotes vencidos.
+                        // descontar() también actualiza productos.stock.
+                        $stockAntes = (float) $producto->stock;
+                        $lotesUsados = $this->fetchTable('ProductoLotes')->descontar((int) $productoId, (float) $cantidad);
+                        $stockDespues = (float) $this->fetchTable('Productos')->get($productoId)->stock;
 
                         $tratamientoId = null;
                         $examenId = null;
@@ -890,6 +902,31 @@ if ($this->request->getQuery('sin_doctor') === '1') {
 
                     if (!$this->Invoices->InvoiceItems->save($itemEntity)) {
                         throw new \RuntimeException('No se pudo guardar invoice_item');
+                    }
+
+                    if ($lotesUsados !== null) {
+                        $InvoiceItemLotes = $this->fetchTable('InvoiceItemLotes');
+                        foreach ($lotesUsados as $loteId => $cantidadLote) {
+                            $InvoiceItemLotes->saveOrFail($InvoiceItemLotes->newEntity([
+                                'invoice_item_id' => $itemEntity->id,
+                                'producto_lote_id' => $loteId,
+                                'cantidad' => $cantidadLote,
+                            ]));
+                        }
+
+                        // La venta queda en el historial del producto, con los lotes de los que salió.
+                        $this->fetchTable('ProductoMovimientos')->registrar([
+                            'producto_id' => $productoId,
+                            'usuario_id' => $invoice->user_id,
+                            'invoice_id' => $invoice->id,
+                            'tipo' => 'egreso',
+                            'motivo_codigo' => 'VENTA',
+                            'cantidad' => $cantidad,
+                            'stock_anterior' => $stockAntes,
+                            'stock_nuevo' => $stockDespues,
+                            'motivo' => 'Venta ' . ($invoice->serie ?: 'RI') . '-' . ($invoice->correlativo ?: $invoice->id),
+                            'lotes' => $lotesUsados,
+                        ]);
                     }
 
                     $subtotal += $lineBase;
@@ -3400,24 +3437,50 @@ private function registrarEgresoAnulacion($invoice, string $etiqueta): void
  */
 private function devolverStockAnulacion($invoice): void
 {
+    $ProductoLotes = $this->fetchTable('ProductoLotes');
+    $InvoiceItemLotes = $this->fetchTable('InvoiceItemLotes');
     $Productos = $this->fetchTable('Productos');
+    $Movimientos = $this->fetchTable('ProductoMovimientos');
+    $usuarioId = $this->Authentication->getIdentity()?->getIdentifier();
+    $comprobante = ($invoice->serie ?: 'RI') . '-' . ($invoice->correlativo ?: $invoice->id);
 
     $items = $this->fetchTable('InvoiceItems')->find()
         ->where(['invoice_id' => $invoice->id, 'tipo_item' => 'producto'])
         ->all();
 
     foreach ($items as $item) {
-        if (empty($item->producto_id)) {
+        if (empty($item->producto_id) || !$Productos->exists(['id' => $item->producto_id])) {
             continue;
         }
 
-        $producto = $Productos->find()->where(['id' => $item->producto_id])->first();
-        if (!$producto) {
-            continue;
+        $stockAntes = (float) $Productos->get($item->producto_id)->stock;
+        $usados = $InvoiceItemLotes->find()->where(['invoice_item_id' => $item->id])->all();
+        $porLote = [];
+        if (!$usados->isEmpty()) {
+            // El stock vuelve exactamente a los lotes de donde salió.
+            foreach ($usados as $u) {
+                $porLote[(int) $u->producto_lote_id] = ($porLote[(int) $u->producto_lote_id] ?? 0) + (float) $u->cantidad;
+            }
+            $ProductoLotes->devolver($porLote);
+        } else {
+            // Venta anterior al control por lotes: se repone como lote de devolución.
+            $cantidadDevuelta = (float) $item->cantidad;
+            $lote = $ProductoLotes->ingresar((int) $item->producto_id, $cantidadDevuelta, null, null, 'DEVOLUCION');
+            $porLote[(int) $lote->id] = $cantidadDevuelta;
         }
 
-        $producto->stock = (float) $producto->stock + (float) $item->cantidad;
-        $Productos->save($producto);
+        $Movimientos->registrar([
+            'producto_id' => $item->producto_id,
+            'usuario_id' => $usuarioId,
+            'invoice_id' => $invoice->id,
+            'tipo' => 'ingreso',
+            'motivo_codigo' => 'ANULACION_VENTA',
+            'cantidad' => (float) $item->cantidad,
+            'stock_anterior' => $stockAntes,
+            'stock_nuevo' => (float) $Productos->get($item->producto_id)->stock,
+            'motivo' => 'Anulación de venta ' . $comprobante,
+            'lotes' => $porLote,
+        ]);
     }
 }
 
