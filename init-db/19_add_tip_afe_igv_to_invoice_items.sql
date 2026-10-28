@@ -1,0 +1,4 @@
+
+ALTER TABLE invoice_items
+ADD COLUMN tip_afe_igv VARCHAR(2) NOT NULL DEFAULT '10'
+AFTER igv;
