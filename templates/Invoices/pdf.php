@@ -2,6 +2,25 @@
 $esFactura = $invoice->tipo_doc === '01';
 $esInterno = $invoice->estado === 'RECIBO_INTERNO';
 
+
+$montoGravado = 0.0;
+$montoExonerado = 0.0;
+
+foreach ($invoice->invoice_items as $item) {
+    $tipoAfectacion = (string) ($item->tip_afe_igv ?? '10');
+    $base = (float) $item->base_igv;
+
+    if ($tipoAfectacion === '20') {
+        $montoExonerado += $base;
+    } else {
+        $montoGravado += $base;
+    }
+}
+
+$montoGravado = round($montoGravado, 2);
+$montoExonerado = round($montoExonerado, 2);
+
+
 $tituloDocumento = $esInterno
     ? 'NOTA DE VENTA'
     : ($esFactura ? 'FACTURA ELECTRÓNICA' : 'BOLETA ELECTRÓNICA');
@@ -184,6 +203,9 @@ $numeroDocumento = ($invoice->serie && $invoice->correlativo)
             <tr>
                 <td colspan="4" class="item-desc">
                     <?= h($item->descripcion) ?>
+                    <?php if ((string) ($item->tip_afe_igv ?? '10') === '20'): ?>
+                        <span>(EXONERADO)</span>
+                    <?php endif; ?>
                 </td>
             </tr>
             <tr class="item-details">
@@ -203,23 +225,57 @@ $numeroDocumento = ($invoice->serie && $invoice->correlativo)
         <?php endforeach; ?>
     </table>
 
+  
     <table class="totals-table">
+
+        <?php if ($montoGravado > 0): ?>
+            <tr>
+                <td></td>
+                <td class="text-right">Op. Gravadas:</td>
+                <td class="text-right">
+                    S/ <?= number_format($montoGravado, 2) ?>
+                </td>
+            </tr>
+        <?php endif; ?>
+
+        <?php if ($montoExonerado > 0): ?>
+            <tr>
+                <td></td>
+                <td class="text-right">Op. Exoneradas:</td>
+                <td class="text-right">
+                    S/ <?= number_format($montoExonerado, 2) ?>
+                </td>
+            </tr>
+        <?php endif; ?>
+
         <tr>
-            <td style="width: 50%;"></td>
-            <td style="width: 25%;" class="text-right">Subtotal:</td>
-            <td style="width: 25%;" class="text-right">S/ <?= number_format((float) $invoice->subtotal, 2) ?></td>
+            <td></td>
+            <td class="text-right">Subtotal:</td>
+            <td class="text-right">
+                S/ <?= number_format((float) $invoice->subtotal, 2) ?>
+            </td>
         </tr>
+
         <tr>
             <td></td>
             <td class="text-right">IGV (18%):</td>
-            <td class="text-right">S/ <?= number_format((float) $invoice->igv, 2) ?></td>
+            <td class="text-right">
+                S/ <?= number_format((float) $invoice->igv, 2) ?>
+            </td>
         </tr>
+
         <tr class="total-final">
             <td></td>
-            <td class="text-right" style="padding: 5px 0;">TOTAL:</td>
-            <td class="text-right" style="padding: 5px 0;">S/ <?= number_format((float) $invoice->total, 2) ?></td>
+            <td class="text-right" style="padding: 5px 0;">
+                TOTAL:
+            </td>
+            <td class="text-right" style="padding: 5px 0;">
+                S/ <?= number_format((float) $invoice->total, 2) ?>
+            </td>
         </tr>
+
     </table>
+
 
     <!-- MÉTODOS DE PAGO -->
     <?php

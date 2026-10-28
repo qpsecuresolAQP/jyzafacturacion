@@ -1010,6 +1010,22 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
                             </div>
                             <div class="form-text descuento-help text-muted mt-1"></div>
                         </div>
+                        
+                        <!-- Tipo de afectación del IGV -->
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Afectación IGV</label>
+                            <select
+                                name="items[${itemIndex}][tip_afe_igv]"
+                                class="form-select form-select-solid tipo-afectacion-igv"
+                            >
+                                <option value="20" selected>Exonerado (0%)</option>
+                                <option value="10" >Gravado (18%)</option>
+                            </select>
+                            <div class="form-text text-muted">
+                                Seleccione según la clasificación tributaria del ítem.
+                            </div>
+                        </div>
+
 
                         <!-- Código Producto -->
                         <div class="col-md-2">

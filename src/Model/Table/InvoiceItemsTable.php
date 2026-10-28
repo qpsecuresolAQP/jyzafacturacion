@@ -95,6 +95,12 @@ class InvoiceItemsTable extends Table
             ->decimal('igv')
             ->requirePresence('igv', 'create')
             ->notEmptyString('igv');
+                
+        $validator
+            ->scalar('tip_afe_igv')
+            ->maxLength('tip_afe_igv', 2)
+            ->inList('tip_afe_igv', ['10', '20'], 'Tipo de afectación IGV inválido.')
+            ->notEmptyString('tip_afe_igv');
 
         $validator
             ->decimal('total')

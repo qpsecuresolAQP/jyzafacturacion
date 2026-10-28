@@ -21,6 +21,7 @@ class InvoiceItem extends Entity
         'examene' => true,
         'base_igv' => true,
         'igv' => true,
+        'tip_afe_igv' => true,
         'total' => true,
         'codigo_producto' => true,
         'unidad' => true,

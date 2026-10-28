@@ -512,10 +512,10 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                 $serie = 'RI';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             } elseif ($tipoDoc === '03') {
-                $serie = 'B002';
+                $serie = 'B005';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             } elseif ($tipoDoc === '01') {
-                $serie = 'F001';
+                $serie = 'F005';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             }
 
@@ -862,10 +862,31 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                         $precioConDescuento = max(0, $precioConDescuento);
                     }
 
-                    $lineTotal  = round($cantidad * $precioConDescuento, 2);
-                    $lineBase   = round($lineTotal / 1.18, 2);
-                    $lineIgv    = round($lineTotal - $lineBase, 2);
-                    $valorUnitario = (float) number_format($precioConDescuento / 1.18, 6, '.', '');
+                                        
+                    // Tipo de afectación IGV:
+                    // 10 = Gravado (18%)
+                    // 20 = Exonerado (0%)
+                    $tipoAfectacionIgv = (string) ($row['tip_afe_igv'] ?? '10');
+
+                    if (!in_array($tipoAfectacionIgv, ['10', '20'], true)) {
+                        throw new \RuntimeException('Tipo de afectación IGV inválido.');
+                    }
+
+                    // Precio final con descuento incluido (no cambia)
+                    $lineTotal = round($cantidad * $precioConDescuento, 2);
+
+                    if ($tipoAfectacionIgv === '20') {
+                        // EXONERADO: no se aplica IGV
+                        $lineBase = $lineTotal;
+                        $lineIgv = 0.00;
+                        $valorUnitario = (float) number_format($precioConDescuento, 6, '.', '');
+                    } else {
+                        // GRAVADO: cálculo original del 18%
+                        $lineBase = round($lineTotal / 1.18, 2);
+                        $lineIgv = round($lineTotal - $lineBase, 2);
+                        $valorUnitario = (float) number_format($precioConDescuento / 1.18, 6, '.', '');
+                    }
+
 
                     
 
@@ -887,6 +908,7 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                         'precio_unitario' => $precioUnitario,
                         'base_igv' => $lineBase,
                         'igv' => $lineIgv,
+                        'tip_afe_igv' => $tipoAfectacionIgv,
                         'total' => $lineTotal,
                         'codigo_producto' => $codigoProducto !== '' ? $codigoProducto : $codigoProductoDefault,
                         'unidad' => $unidad !== '' ? $unidad : 'NIU',
@@ -1446,49 +1468,79 @@ if ($this->request->getQuery('sin_doctor') === '1') {
             ->setNumDoc((string)$invoiceEntity->cliente_numero)
             ->setRznSocial((string)$invoiceEntity->cliente_nombre);
 
-        $details = [];
-        $sumGravada = 0.0;
-        $sumIgv = 0.0;
-        $sumTotal = 0.0;
+        
+            $details = [];
 
-        foreach ($invoiceEntity->invoice_items as $it) {
-            $qty = (float)$it->cantidad;
-            if ($qty <= 0) {
-                continue;
+            $sumGravada = 0.0;
+            $sumExonerada = 0.0;
+            $sumIgv = 0.0;
+            $sumTotal = 0.0;
+
+            foreach ($invoiceEntity->invoice_items as $it) {
+                $qty = (float) $it->cantidad;
+
+                if ($qty <= 0) {
+                    continue;
+                }
+
+                // Compatibilidad con ítems antiguos: gravado por defecto.
+                $tipoAfectacionIgv = (string) ($it->tip_afe_igv ?? '10');
+
+                if (!in_array($tipoAfectacionIgv, ['10', '20'], true)) {
+                    throw new \RuntimeException(
+                        'Tipo de afectación IGV inválido en el ítem ' . $it->id
+                    );
+                }
+
+                $lineTotal = round((float) $it->total, 2);
+                $lineBase = round((float) $it->base_igv, 2);
+                $lineIgv = round((float) $it->igv, 2);
+
+                $precioUnitarioFinal = round($lineTotal / $qty, 2);
+
+                if ($tipoAfectacionIgv === '20') {
+                    if (abs($lineIgv) > 0.001 || abs($lineBase - $lineTotal) > 0.01) {
+                        throw new \RuntimeException(
+                            'Los importes del ítem exonerado no son consistentes: ' . $it->id
+                        );
+                    }
+
+                    $sumExonerada += $lineBase;
+                } else {
+                    $sumGravada += $lineBase;
+                }
+
+                $sumIgv += $lineIgv;
+                $sumTotal += $lineTotal;
+
+                $details[] = (new SaleDetail())
+                    ->setCodProducto((string) ($it->codigo_producto ?: 'TRAT'))
+                    ->setUnidad((string) ($it->unidad ?: 'NIU'))
+                    ->setCantidad($qty)
+                    ->setMtoValorUnitario((float) $it->valor_unitario)
+                    ->setDescripcion((string) ($it->nombre_sunat ?: $it->descripcion))
+                    ->setMtoBaseIgv($lineBase)
+                    ->setMtoValorVenta($lineBase)
+                    ->setPorcentajeIgv(18.00)
+                    ->setIgv($lineIgv)
+                    ->setTipAfeIgv($tipoAfectacionIgv)
+                    ->setTotalImpuestos($lineIgv)
+                    ->setMtoPrecioUnitario($precioUnitarioFinal);
             }
 
-            // Usar precio con descuento aplicado (total / cantidad) para el PriceAmount
-            $precioUnitConIgv = $qty > 0 ? round((float)$it->total / $qty, 2) : (float)$it->precio_unitario;
-            $lineTotalConIgv = (float)$it->total;
-            $lineBase = (float)$it->base_igv;
-            $lineIgv = (float)$it->igv;
-
-            $sumGravada += $lineBase;
-            $sumIgv += $lineIgv;
-            $sumTotal += $lineTotalConIgv;
-
-            $details[] = (new SaleDetail())
-                ->setCodProducto((string)($it->codigo_producto ?: 'TRAT'))
-                ->setUnidad((string)($it->unidad ?: 'NIU'))
-                ->setCantidad($qty)
-                ->setMtoValorUnitario((float)$it->valor_unitario)
-                ->setDescripcion((string)($it->nombre_sunat ?: $it->descripcion))
-                ->setMtoBaseIgv($lineBase)
-                ->setMtoValorVenta($lineBase)
-                ->setPorcentajeIgv(18.00)
-                ->setIgv($lineIgv)
-                ->setTipAfeIgv('10')
-                ->setTotalImpuestos($lineIgv)
-                ->setMtoPrecioUnitario($precioUnitConIgv);
-        }
 
         if (empty($details)) {
             throw new \RuntimeException('No se encontraron items válidos.');
         }
 
-        $valorVenta = (float)number_format(round($sumGravada, 2), 2, '.', '');
-        $igvTotal = (float)number_format(round($sumIgv, 2), 2, '.', '');
-        $total = (float)number_format(round($sumTotal, 2), 2, '.', '');
+        
+        $montoGravado = round($sumGravada, 2);
+        $montoExonerado = round($sumExonerada, 2);
+
+        $valorVenta = round($montoGravado + $montoExonerado, 2);
+        $igvTotal = round($sumIgv, 2);
+        $total = round($sumTotal, 2);
+
 
         $invoiceEntity->subtotal = $valorVenta;
         $invoiceEntity->igv = $igvTotal;
@@ -1568,10 +1620,13 @@ if ($this->request->getQuery('sin_doctor') === '1') {
             ->setTipoMoneda('PEN')
             ->setCompany($empresa)
             ->setClient($cliente)
-            ->setMtoOperGravadas($valorVenta)
+                        
+            ->setMtoOperGravadas($montoGravado)
+            ->setMtoOperExoneradas($montoExonerado)
             ->setMtoIGV($igvTotal)
             ->setTotalImpuestos($igvTotal)
             ->setValorVenta($valorVenta)
+
             ->setSubTotal($total)
             ->setMtoImpVenta($total)
             ->setFormaPago($formaPagoGreenter)
@@ -1836,19 +1891,95 @@ public function comprobanteCuota($cuotaId)
                     ->setCodLocal((string)($company->cod_local ?: '0000'))
             );
 
+        
         $details = [];
+
+        $InvoiceItems = $this->fetchTable('InvoiceItems');
+
         foreach ($boletas as $b) {
-            $details[] = (new SummaryDetail())
+
+            // Obtener los ítems de la boleta
+            $itemsBoleta = $InvoiceItems->find()
+                ->where(['invoice_id' => $b->id])
+                ->all();
+
+            $montoGravado = 0.0;
+            $montoExonerado = 0.0;
+            $igvBoleta = 0.0;
+
+            foreach ($itemsBoleta as $item) {
+
+                // Ítems anteriores: gravados por defecto
+                $tipoAfectacion = (string) ($item->tip_afe_igv ?? '10');
+
+                if (!in_array($tipoAfectacion, ['10', '20'], true)) {
+                    throw new \RuntimeException(
+                        'Tipo de afectación IGV inválido en el ítem ' . $item->id
+                    );
+                }
+
+                $base = round((float) $item->base_igv, 2);
+                $igvItem = round((float) $item->igv, 2);
+
+                if ($tipoAfectacion === '20') {
+                    if (abs($igvItem) > 0.001) {
+                        throw new \RuntimeException(
+                            'El ítem exonerado tiene IGV distinto de cero: ' . $item->id
+                        );
+                    }
+
+                    $montoExonerado += $base;
+                } else {
+                    $montoGravado += $base;
+                }
+
+                $igvBoleta += $igvItem;
+            }
+
+            $montoGravado = round($montoGravado, 2);
+            $montoExonerado = round($montoExonerado, 2);
+            $igvBoleta = round($igvBoleta, 2);
+
+            // Validar que el desglose coincida con la boleta guardada
+            $totalCalculado = round(
+                $montoGravado + $montoExonerado + $igvBoleta,
+                2
+            );
+
+            if (abs($totalCalculado - (float) $b->total) > 0.01) {
+                throw new \RuntimeException(
+                    'Los importes tributarios no coinciden en la boleta ' .
+                    $b->serie . '-' . $b->correlativo
+                );
+            }
+
+            $detalle = (new SummaryDetail())
                 ->setTipoDoc('03')
-                ->setSerieNro($b->serie . '-' . str_pad((string)$b->correlativo, 8, '0', STR_PAD_LEFT))
+                ->setSerieNro(
+                    $b->serie . '-' .
+                    str_pad((string) $b->correlativo, 8, '0', STR_PAD_LEFT)
+                )
                 ->setEstado('1')
-                ->setClienteTipo((string)($b->cliente_tipo_doc !== null && $b->cliente_tipo_doc !== '' ? $b->cliente_tipo_doc : '1'))
-                ->setClienteNro((string)($b->cliente_numero ?: '00000000'))
-                ->setTotal((float)$b->total)
-                ->setMtoOperGravadas((float)$b->subtotal)
-                ->setMtoIGV((float)$b->igv)
+                ->setClienteTipo(
+                    (string) (
+                        $b->cliente_tipo_doc !== null &&
+                        $b->cliente_tipo_doc !== ''
+                            ? $b->cliente_tipo_doc
+                            : '1'
+                    )
+                )
+                ->setClienteNro(
+                    (string) ($b->cliente_numero ?: '00000000')
+                )
+                ->setTotal((float) $b->total)
+                ->setMtoOperGravadas($montoGravado)
+                ->setMtoOperExoneradas($montoExonerado)
+                ->setMtoIGV($igvBoleta)
                 ->setPorcentajeIgv(18.00);
+
+            $details[] = $detalle;
         }
+
 
         $summary = (new Summary())
             ->setFecGeneracion(new \DateTime($fecha->format('Y-m-d')))
