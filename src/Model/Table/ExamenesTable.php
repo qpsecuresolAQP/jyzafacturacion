@@ -9,6 +9,12 @@ use Cake\Validation\Validator;
 
 class ExamenesTable extends Table
 {
+    /** Porcentaje del precio que se propone como comisión al médico en exámenes nuevos. */
+    public const COMISION_MEDICO_PORCENTAJE_DEFAULT = 5;
+
+    /** Categorías sin comisión por defecto: BIOPSIA (6), PRUEBAS MOLECULARES (8), CITOLOGIA (9). */
+    public const CATEGORIAS_SIN_COMISION_DEFAULT = [6, 8, 9];
+
     public function initialize(array $config): void
     {
         parent::initialize($config);
