@@ -55,10 +55,8 @@
 
                 <!-- Código interno -->
                 <div class="col-md-6 mb-3">
-                    <?= $this->Form->control('codigo', [
-                        'label' => 'Código Interno',
-                        'class' => 'form-control',
-                    ]) ?>
+                    <label class="form-label">Código Interno</label>
+                    <input type="text" class="form-control" value="<?= h($producto->codigo) ?>" disabled>
                 </div>
 
                 <!-- Código SUNAT -->

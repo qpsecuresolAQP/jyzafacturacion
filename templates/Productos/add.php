@@ -56,11 +56,8 @@
 
                 <!-- Código interno -->
                 <div class="col-md-6 mb-3">
-                    <?= $this->Form->control('codigo', [
-                        'label'       => 'Código Interno',
-                        'class'       => 'form-control',
-                        'placeholder' => 'Ejemplo: PROD-001',
-                    ]) ?>
+                    <label class="form-label">Código Interno</label>
+                    <input type="text" class="form-control" value="Se genera automáticamente (PROD-001)" disabled>
                 </div>
 
                 <!-- Código SUNAT -->

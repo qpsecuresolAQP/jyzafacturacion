@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace App\Model\Table;
 
+use ArrayObject;
+use Cake\Datasource\EntityInterface;
+use Cake\Event\EventInterface;
 use Cake\ORM\Table;
 use Cake\Validation\Validator;
 
@@ -76,5 +79,21 @@ class ProductosTable extends Table
             ->allowEmptyString('desactivado_por_categoria');
 
         return $validator;
+    }
+
+    /**
+     * El código interno siempre se genera a partir del id (PROD-001, PROD-002, ...);
+     * no se ingresa a mano.
+     */
+    public function afterSave(EventInterface $event, EntityInterface $entity, ArrayObject $options): void
+    {
+        $codigo = sprintf('PROD-%03d', $entity->get('id'));
+        if ($entity->get('codigo') === $codigo) {
+            return;
+        }
+
+        $this->updateAll(['codigo' => $codigo], ['id' => $entity->get('id')]);
+        $entity->set('codigo', $codigo);
+        $entity->clean();
     }
 }
