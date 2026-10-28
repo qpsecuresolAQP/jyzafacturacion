@@ -5,6 +5,8 @@
  * @var array $categoriasExamenes
  * @var array $laboratorios
  */
+
+use App\Model\Table\ExamenesTable;
 ?>
 
 <div class="container mt-4 mb-4">
@@ -91,7 +93,7 @@
                     <label for="comision-medico-porcentaje" class="form-label">% sobre precio (opcional)</label>
                     <input type="number" id="comision-medico-porcentaje" class="form-control"
                         step="0.01" min="0" max="100" placeholder="Ej: 20">
-                    <small class="text-muted">Solo ayuda a calcular el monto; no se guarda.</small>
+                    <small class="text-muted">Por defecto <?= ExamenesTable::COMISION_MEDICO_PORCENTAJE_DEFAULT ?>% (excepto biopsias, citologías y pruebas moleculares). Solo ayuda a calcular el monto; no se guarda.</small>
                 </div>
 
                 <div class="col-md-3 mb-3">
@@ -104,7 +106,7 @@
                         'min'         => '0',
                         'id'          => 'comision-medico-input',
                     ]) ?>
-                    <small class="text-muted">Monto fijo que se paga al doctor por cada examen realizado. Deja en 0 si no corresponde.</small>
+                    <small class="text-muted">Monto fijo que se paga al doctor por cada examen realizado. Se puede modificar; deja en 0 si no corresponde.</small>
                 </div>
 
                 <div class="col-md-6 mb-3">
@@ -174,6 +176,28 @@
         if (precioInput) {
             precioInput.addEventListener("input", calcularComisionPorPorcentaje);
         }
+
+        // Comisión por defecto según categoría: 5% del precio, salvo biopsias,
+        // citologías y pruebas moleculares (sin comisión). Se puede modificar a mano.
+        const categoriaSelect = document.getElementById("categoria-examen-id");
+        const porcentajeDefault = <?= json_encode(ExamenesTable::COMISION_MEDICO_PORCENTAJE_DEFAULT) ?>;
+        const categoriasSinComision = <?= json_encode(array_map('strval', ExamenesTable::CATEGORIAS_SIN_COMISION_DEFAULT)) ?>;
+
+        function aplicarComisionPorDefecto() {
+            if (!porcentajeInput || !comisionInput) return;
+            if (categoriaSelect && categoriasSinComision.includes(categoriaSelect.value)) {
+                porcentajeInput.value = "";
+                comisionInput.value = "0.00";
+                return;
+            }
+            porcentajeInput.value = porcentajeDefault;
+            calcularComisionPorPorcentaje();
+        }
+
+        if (categoriaSelect) {
+            categoriaSelect.addEventListener("change", aplicarComisionPorDefecto);
+        }
+        aplicarComisionPorDefecto();
 
         // Evita que la ruedita del mouse cambie el valor de los campos numéricos
         // por error al hacer scroll de la página con el cursor encima.

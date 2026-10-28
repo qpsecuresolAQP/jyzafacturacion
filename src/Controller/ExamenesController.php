@@ -87,7 +87,7 @@ class ExamenesController extends AppController
         $categoriasExamenes = $this->Examenes->CategoriasExamenes->find('list', [
             'keyField' => 'id',
             'valueField' => 'nombre',
-        ])->order(['nombre' => 'ASC'])->toArray();
+        ])->where(['estado' => 1])->order(['nombre' => 'ASC'])->toArray();
 
         $laboratorios = $this->Examenes->Laboratorios->find('list', [
             'keyField' => 'id',
@@ -124,10 +124,14 @@ class ExamenesController extends AppController
             $this->Flash->error(__('No se pudo guardar el examen.'));
         }
 
+        // Solo categorías activas, más la que el examen ya tiene asignada aunque esté inactiva.
         $categoriasExamenes = $this->Examenes->CategoriasExamenes->find('list', [
             'keyField' => 'id',
             'valueField' => 'nombre',
-        ])->order(['nombre' => 'ASC'])->toArray();
+        ])->where(['OR' => [
+            'estado' => 1,
+            'id' => (int)$examene->getOriginal('categoria_examen_id'),
+        ]])->order(['nombre' => 'ASC'])->toArray();
 
         $laboratorios = $this->Examenes->Laboratorios->find('list', [
             'keyField' => 'id',
