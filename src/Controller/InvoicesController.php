@@ -512,10 +512,10 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                 $serie = 'RI';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             } elseif ($tipoDoc === '03') {
-                $serie = 'B001';
+                $serie = 'B002';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             } elseif ($tipoDoc === '01') {
-                $serie = 'F001';
+                $serie = 'F002';
                 $correlativo = $this->obtenerSiguienteCorrelativo($companyId, $serie);
             }
 
