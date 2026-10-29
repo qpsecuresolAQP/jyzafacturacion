@@ -303,6 +303,37 @@
                             </div>
                         </div>
 
+                        <!-- SECCIÓN 6: INFORMACIÓN ADICIONAL -->
+                        <div class="card card-flush mb-4 border-0 border-top border-5 border-info">
+                            <div class="card-header bg-white border-bottom">
+                                <h6 class="mb-0 fw-bold text-info">
+                                    <i class="fas fa-comment-alt me-2"></i>
+                                    Información Adicional (Opcional)
+                                </h6>
+                            </div>
+
+                            <div class="card-body pt-4 pb-4">
+                                <label for="observaciones" class="form-label fw-semibold">
+                                    Mensaje para el comprobante
+                                </label>
+
+                                <textarea
+                                    name="observaciones"
+                                    id="observaciones"
+                                    class="form-control form-control-solid"
+                                    rows="3"
+                                    maxlength="500"
+                                    placeholder="Ejemplo: Adelanto N.º B001-24490: 30 soles"
+                                ></textarea>
+
+                                <small class="text-muted">
+                                    Este mensaje aparecerá en el PDF de la boleta,
+                                    factura o nota de venta. Si lo dejas vacío,
+                                    no aparecerá ninguna información adicional.
+                                </small>
+                            </div>
+                        </div>
+
 
                         <!-- BOTONES DE ACCIÓN -->
                         <div class="row mt-5">

@@ -214,9 +214,15 @@ class InvoicesTable extends Table
             ->add('forma_pago', 'inList', [
                 'rule' => ['inList', ['CONTADO', 'CREDITO']],
                 'message' => 'Forma de pago inválida.',
-            ]);            
-        return $validator;
-    }
+            ]);          
+            
+        // Mensaje adicional opcional para el PDF
+        $validator
+            ->scalar('observaciones')
+            ->maxLength('observaciones', 500)
+            ->allowEmptyString('observaciones');
+                return $validator;
+            }
 
     public function buildRules(RulesChecker $rules): RulesChecker
     {

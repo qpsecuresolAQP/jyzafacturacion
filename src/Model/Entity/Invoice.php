@@ -49,5 +49,7 @@ class Invoice extends Entity
         'caja' => true,
         'forma_pago' => true,
         'invoice_cuotas' => true,
+
+        'observaciones' => true,
     ];
 }

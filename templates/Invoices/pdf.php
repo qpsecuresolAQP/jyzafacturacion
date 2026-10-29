@@ -2,9 +2,10 @@
 $esFactura = $invoice->tipo_doc === '01';
 $esInterno = $invoice->estado === 'RECIBO_INTERNO';
 
-
+/* ── MONTOS ── */
 $montoGravado = 0.0;
 $montoExonerado = 0.0;
+$totalDescuentos = 0.0;
 
 foreach ($invoice->invoice_items as $item) {
     $tipoAfectacion = (string) ($item->tip_afe_igv ?? '10');
@@ -15,19 +16,107 @@ foreach ($invoice->invoice_items as $item) {
     } else {
         $montoGravado += $base;
     }
+
+    // Descuento por ítem (porcentaje o monto fijo)
+    $desc = (float) ($item->descuento ?? 0);
+    if ($desc > 0) {
+        if (($item->descuento_tipo ?? 'porcentaje') === 'porcentaje') {
+            $totalDescuentos += ((float) $item->cantidad * (float) $item->precio_unitario) * ($desc / 100);
+        } else {
+            $totalDescuentos += $desc;
+        }
+    }
 }
 
 $montoGravado = round($montoGravado, 2);
 $montoExonerado = round($montoExonerado, 2);
+$totalDescuentos = round($totalDescuentos, 2);
 
-
+/* ── TÍTULO Y NÚMERO ── */
 $tituloDocumento = $esInterno
     ? 'NOTA DE VENTA'
-    : ($esFactura ? 'FACTURA ELECTRÓNICA' : 'BOLETA ELECTRÓNICA');
+    : ($esFactura ? 'FACTURA DE VENTA ELECTRÓNICA' : 'BOLETA DE VENTA ELECTRÓNICA');
 
 $numeroDocumento = ($invoice->serie && $invoice->correlativo)
     ? $invoice->serie . '-' . $invoice->correlativo
     : 'NV-' . $invoice->id;
+
+$etiquetaDoc = $esFactura ? 'R.U.C.' : 'D.N.I.';
+
+/* ── FORMA DE PAGO (desde caja_movimientos) ── */
+$paymentMethods = [];
+if (!empty($invoice->caja_movimientos)) {
+    foreach ($invoice->caja_movimientos as $mov) {
+        if (!empty($mov->metodo_pago) && (float) $mov->monto_recibido > 0) {
+            $paymentMethods[] = $mov->metodo_pago;
+        }
+    }
+}
+$formaPago = 'Contado' . (!empty($paymentMethods) ? ' - ' . implode(', ', array_unique($paymentMethods)) : '');
+
+/* ── MONTO EN LETRAS ── */
+if (!function_exists('montoEnLetras')) {
+    function montoEnLetras(float $monto): string
+    {
+        $u = ['', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ',
+            'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISEIS', 'DIECISIETE', 'DIECIOCHO',
+            'DIECINUEVE', 'VEINTE', 'VEINTIUNO', 'VEINTIDOS', 'VEINTITRES', 'VEINTICUATRO',
+            'VEINTICINCO', 'VEINTISEIS', 'VEINTISIETE', 'VEINTIOCHO', 'VEINTINUEVE'];
+        $d = [3 => 'TREINTA', 4 => 'CUARENTA', 5 => 'CINCUENTA', 6 => 'SESENTA',
+            7 => 'SETENTA', 8 => 'OCHENTA', 9 => 'NOVENTA'];
+        $c = [1 => 'CIENTO', 2 => 'DOSCIENTOS', 3 => 'TRESCIENTOS', 4 => 'CUATROCIENTOS',
+            5 => 'QUINIENTOS', 6 => 'SEISCIENTOS', 7 => 'SETECIENTOS', 8 => 'OCHOCIENTOS',
+            9 => 'NOVECIENTOS'];
+
+        $menor1000 = function (int $n) use ($u, $d, $c): string {
+            if ($n === 0) return '';
+            if ($n === 100) return 'CIEN';
+            $txt = '';
+            $cent = intdiv($n, 100);
+            $resto = $n % 100;
+            if ($cent > 0) $txt .= $c[$cent] . ' ';
+            if ($resto < 30) {
+                $txt .= $u[$resto];
+            } else {
+                $dec = intdiv($resto, 10);
+                $uni = $resto % 10;
+                $txt .= $d[$dec] . ($uni ? ' Y ' . $u[$uni] : '');
+            }
+            return trim($txt);
+        };
+
+        $entero = (int) floor($monto);
+        $centimos = (int) round(($monto - $entero) * 100);
+
+        if ($entero === 0) {
+            $letras = 'CERO';
+        } else {
+            $letras = '';
+            $millones = intdiv($entero, 1000000);
+            $miles = intdiv($entero % 1000000, 1000);
+            $cientos = $entero % 1000;
+
+            if ($millones > 0) {
+                $letras .= ($millones === 1 ? 'UN MILLON' : $menor1000($millones) . ' MILLONES') . ' ';
+            }
+            if ($miles > 0) {
+                $letras .= ($miles === 1 ? 'MIL' : $menor1000($miles) . ' MIL') . ' ';
+            }
+            if ($cientos > 0) {
+                $letras .= $menor1000($cientos);
+            }
+            $letras = trim($letras);
+        }
+
+        return $letras . ' CON ' . str_pad((string) $centimos, 2, '0', STR_PAD_LEFT) . '/100 SOLES';
+    }
+}
+$montoLetras = montoEnLetras((float) $invoice->total);
+
+/* ── OPCIONALES ── */
+// $qrUrl            → imagen del QR (URL o data:image/png;base64,...)
+// $invoice->observaciones → texto de "Información Adicional"
+$infoAdicional = trim((string) ($invoice->observaciones ?? ''));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -36,48 +125,39 @@ $numeroDocumento = ($invoice->serie && $invoice->correlativo)
     <meta charset="UTF-8">
     <title><?= h($tituloDocumento . ' ' . $numeroDocumento) ?></title>
     <style>
-    /* ── CONFIGURACIÓN BASE NEGRO Y NEGRITA ABSOLUTA ── */
+    /* ── BASE: NEGRO Y NEGRITA PARA TÉRMICA ── */
     * {
-        color: #000000 !important;        /* Fuerza negro puro en absolutamente todo */
-        border-color: #000000 !important;  /* Fuerza que ningún borde sea gris */
-        font-weight: bold !important;     /* ← NUEVO: Fuerza todo el texto a NEGRITA */
+        color: #000000 !important;
+        border-color: #000000 !important;
+        font-weight: bold !important;
+        box-sizing: border-box;
     }
 
     body {
-        font-family: 'Courier New', Courier, monospace;
+        font-family: Arial, Helvetica, sans-serif;
         background-color: #fff;
         margin: 0 auto;
-        padding: 5px; 
-        font-size: 10px; 
-        width: 54mm; 
-        
-        /* Desactiva el suavizado de fuentes (evita bordes con pixeles grises) */
+        padding: 5px;
+        font-size: 10px;
+        width: 54mm;
+
         -webkit-font-smoothing: none !important;
         -moz-osx-font-smoothing: none !important;
         font-smoothing: none !important;
         text-shadow: none !important;
     }
 
-    @page {
-        margin: 0;
-    }
+    @page { margin: 0; }
 
     /* ── UTILIDADES ── */
     .text-center { text-align: center; }
-    .text-right { text-align: right; }
-    .text-left { text-align: left; }
-    .mb-5 { margin-bottom: 5px; }
-    .mt-5 { margin-top: 5px; }
-    
-    .dashed-divider {
-        border-top: 1px dashed #000000;
-        margin: 6px 0;
-    }
+    .text-right  { text-align: right; }
+    .text-left   { text-align: left; }
 
     /* ── ENCABEZADO ── */
     .header {
         text-align: center;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
     .header img {
         max-width: 60px;
@@ -85,273 +165,230 @@ $numeroDocumento = ($invoice->serie && $invoice->correlativo)
         margin-bottom: 5px;
     }
     .company-name {
-        font-size: 11px;
+        font-size: 12px;
+        line-height: 1.2;
         margin-bottom: 3px;
         text-transform: uppercase;
     }
     .subtitle {
         font-size: 9px;
-        line-height: 1.3;
+        line-height: 1.35;
+        text-transform: uppercase;
     }
 
-    /* ── CAJAS DE INFORMACIÓN ── */
-    .info-box {
-        border: 1px dashed #000000; 
-        padding: 4px;
-        margin-bottom: 6px;
+    /* ── CAJA DEL DOCUMENTO (bordes redondeados) ── */
+    .doc-box {
+        border: 1px solid #000000;
+        border-radius: 10px;
+        padding: 5px 4px;
+        margin: 6px 0;
         text-align: center;
-    }
-    .info-box-left {
-        border: 1px dashed #000000;
-        padding: 4px;
-        margin-bottom: 6px;
-        text-align: left;
+        font-size: 10px;
         line-height: 1.4;
+    }
+
+    /* ── DATOS DEL CLIENTE ── */
+    .client-data {
         font-size: 9px;
-    }
-    .doc-title {
-        font-size: 11px;
-        margin: 3px 0;
-    }
-    .doc-number {
-        font-size: 12px;
+        line-height: 1.5;
+        margin-bottom: 4px;
     }
 
     /* ── TABLA DE ITEMS ── */
-    .items-container {
+    .items-table {
         width: 100%;
         border-collapse: collapse;
-        margin-bottom: 8px;
         font-size: 9px;
+        border-top: 1px solid #000000;
+        border-bottom: 1px solid #000000;
+        margin-bottom: 4px;
     }
-    .item-desc {
-        padding: 4px 0 2px 0;
-        text-align: left;
+    .items-table th {
+        padding: 3px 0;
+        font-size: 8px;
+        border-bottom: 1px solid #000000;
+        vertical-align: bottom;
     }
-    .item-details {
-        padding: 0 0 4px 0;
-        border-bottom: 1px dotted #000000; 
-    }
-    .item-details td {
+    .items-table td {
         padding: 2px 0;
+        vertical-align: top;
     }
 
-    /* ── TABLA DE TOTALES ── */
+    /* ── TOTALES + QR ── */
+    .totals-wrap {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 3px;
+    }
+    .totals-wrap td { vertical-align: middle; }
+    .qr-cell { width: 26%; padding-right: 3px; }
+    .qr-cell img { width: 100%; height: auto; display: block; }
+
     .totals-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 10px;
-        margin-top: 5px;
+        font-size: 9px;
     }
-    .totals-table td {
+    .totals-table td { padding: 2px 0; }
+
+    /* ── MONTO EN LETRAS ── */
+    .son {
+        border-top: 1px solid #000000;
+        border-bottom: 1px solid #000000;
         padding: 3px 0;
+        text-align: center;
+        font-size: 9px;
+        margin-bottom: 4px;
     }
-    .total-final {
-        font-size: 11px;
-        border-top: 1px dashed #000000;
-        border-bottom: 1px dashed #000000;
+
+    /* ── INFO ADICIONAL ── */
+    .info-adicional {
+        text-align: center;
+        font-size: 9px;
+        line-height: 1.4;
+        margin-bottom: 4px;
     }
 
     /* ── FOOTER ── */
     .footer {
         text-align: center;
-        font-size: 9px;
-        line-height: 1.4;
-        margin-top: 10px;
-        padding-top: 5px;
-        border-top: 1px dashed #000000;
+        font-size: 7px;
+        line-height: 1.35;
+        margin-top: 4px;
     }
+    .footer .gracias { font-size: 8px; margin-bottom: 3px; }
     </style>
 </head>
 
 <body>
 
+    <!-- ENCABEZADO -->
     <div class="header">
         <?php if (!empty($logoUrl)): ?>
-            <div><img src="<?= $logoUrl ?>" alt="Logo"></div>
+            <div><img src="<?= h($logoUrl) ?>" alt="Logo"></div>
         <?php endif; ?>
         <div class="company-name"><?= h($invoice->company->razon_social) ?></div>
-        <div class="subtitle"><strong>RUC:</strong> <?= h($invoice->company->ruc) ?></div>
-        <div class="subtitle"><strong>Dir:</strong> <?= h($invoice->company->direccion) ?></div>
-        <div class="subtitle"><strong>Email:</strong> <?= h($invoice->company->email ?? '-') ?></div>
-    </div>
-
-    <div class="info-box">
-        <div>RUC <?= h($invoice->company->ruc) ?></div>
-        <div class="doc-title"><?= h($tituloDocumento) ?></div>
-        <div class="doc-number"><?= h($numeroDocumento) ?></div>
-        <div class="dashed-divider" style="margin: 4px 0;"></div>
-        <div style="font-size: 9px; line-height: 1.4;">
-            <strong>Estado:</strong> <?= h($invoice->estado) ?><br>
-            <strong>Emisión:</strong> <?= h($invoice->created?->format('d/m/Y H:i')) ?><br>
-            <strong>Pago:</strong> <?= h($invoice->created?->format('d/m/Y H:i')) ?>
-        </div>
-    </div>
-
-    <div class="info-box-left">
-        <div><strong>Cliente:</strong> <?= h($invoice->cliente_nombre) ?></div>
-        <div><strong>Documento:</strong> <?= h($invoice->cliente_numero) ?></div>
-        <div><strong>Dirección:</strong> <?= h($invoice->cliente_direccion ?: '-') ?></div>
-        <div><strong>Email:</strong> <?= h($invoice->cliente_email ?: '-') ?></div>
-    </div>
-
-    <div class="dashed-divider"></div>
-    <div class="text-center mb-5" style="font-size: 11px;">DETALLE DE COMPRA</div>
-
-    <table class="items-container">
-        <?php foreach ($invoice->invoice_items as $item): ?>
-            <tr>
-                <td colspan="4" class="item-desc">
-                    <?= h($item->descripcion) ?>
-                    <?php if ((string) ($item->tip_afe_igv ?? '10') === '20'): ?>
-                        <span>(EXONERADO)</span>
-                    <?php endif; ?>
-                </td>
-            </tr>
-            <tr class="item-details">
-                <td style="width: 20%;" class="text-left">
-                    Cant: <?= h($item->cantidad) ?>
-                </td>
-                <td style="width: 25%;" class="text-center">
-                    VU: S/ <?= number_format((float) $item->valor_unitario, 2) ?>
-                </td>
-                <td style="width: 25%;" class="text-center">
-                    PU: S/ <?= number_format((float) $item->precio_unitario, 2) ?>
-                </td>
-                <td style="width: 30%;" class="text-right">
-                    Tot: S/ <?= number_format((float) $item->total, 2) ?>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-    </table>
-
-  
-    <table class="totals-table">
-
-        <?php if ($montoGravado > 0): ?>
-            <tr>
-                <td></td>
-                <td class="text-right">Op. Gravadas:</td>
-                <td class="text-right">
-                    S/ <?= number_format($montoGravado, 2) ?>
-                </td>
-            </tr>
+        <div class="subtitle">R.U.C. : <?= h($invoice->company->ruc) ?></div>
+        <div class="subtitle"><?= h($invoice->company->direccion) ?></div>
+        <?php if (!empty($invoice->company->telefono)): ?>
+            <div class="subtitle">Teléfono : <?= h($invoice->company->telefono) ?></div>
         <?php endif; ?>
-
-        <?php if ($montoExonerado > 0): ?>
-            <tr>
-                <td></td>
-                <td class="text-right">Op. Exoneradas:</td>
-                <td class="text-right">
-                    S/ <?= number_format($montoExonerado, 2) ?>
-                </td>
-            </tr>
+        <?php if (!empty($invoice->company->email)): ?>
+            <div class="subtitle" style="text-transform: none;"><?= h($invoice->company->email) ?></div>
         <?php endif; ?>
+    </div>
 
-        <tr>
-            <td></td>
-            <td class="text-right">Subtotal:</td>
-            <td class="text-right">
-                S/ <?= number_format((float) $invoice->subtotal, 2) ?>
-            </td>
-        </tr>
+    <!-- TÍTULO + NÚMERO -->
+    <div class="doc-box">
+        <div><?= h($tituloDocumento) ?></div>
+        <div>Nº <?= h($numeroDocumento) ?></div>
+    </div>
 
-        <tr>
-            <td></td>
-            <td class="text-right">IGV (18%):</td>
-            <td class="text-right">
-                S/ <?= number_format((float) $invoice->igv, 2) ?>
-            </td>
-        </tr>
+    <!-- DATOS DEL CLIENTE -->
+    <div class="client-data">
+        <div>Cliente : <?= h($invoice->cliente_nombre) ?></div>
+        <div><?= $etiquetaDoc ?> : <?= h($invoice->cliente_numero) ?></div>
+        <div>Dirección : <?= h($invoice->cliente_direccion ?: '-') ?></div>
+        <div>Fecha : <?= h($invoice->created?->format('d/m/Y')) ?> &nbsp; Hora : <?= h($invoice->created?->format('H:i')) ?></div>
+        <div>Moneda : SOLES</div>
+        <div>Forma de Pago : <?= h($formaPago) ?></div>
+    </div>
 
-        <tr class="total-final">
-            <td></td>
-            <td class="text-right" style="padding: 5px 0;">
-                TOTAL:
-            </td>
-            <td class="text-right" style="padding: 5px 0;">
-                S/ <?= number_format((float) $invoice->total, 2) ?>
-            </td>
-        </tr>
-
-    </table>
-
-
-    <!-- MÉTODOS DE PAGO -->
-    <?php
-    $paymentMethods = [];
-    if (!empty($invoice->caja_movimientos) && is_array($invoice->caja_movimientos)) {
-        foreach ($invoice->caja_movimientos as $mov) {
-            if (!empty($mov->metodo_pago) && (float)$mov->monto_recibido > 0) {
-                $paymentMethods[] = [
-                    'metodo' => $mov->metodo_pago,
-                    'monto' => (float)$mov->monto_recibido
-                ];
-            }
-        }
-    }
-    ?>
-    <?php if (!empty($paymentMethods) && count($paymentMethods) > 0): ?>
-        <div class="dashed-divider"></div>
-        <div class="text-center mb-5" style="font-size: 11px;">MÉTODOS DE PAGO</div>
-        <table class="totals-table" style="font-size: 9px;">
-            <?php foreach ($paymentMethods as $pm): ?>
+    <!-- ITEMS -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th class="text-left" style="width: 14%;">CANT.</th>
+                <th class="text-center" style="width: 42%;">PRODUCTO</th>
+                <th class="text-right" style="width: 20%;">P.<br>UNIT.</th>
+                <th class="text-right" style="width: 24%;">IMPORTE<br>T.</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($invoice->invoice_items as $item): ?>
                 <tr>
-                    <td style="width: 60%;" class="text-left">
-                        <?= h($pm['metodo']) ?>
-                    </td>
-                    <td style="width: 40%;" class="text-right">
-                        S/ <?= number_format((float) $pm['monto'], 2) ?>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-        </table>
-    <?php endif; ?>
-
-    <!-- DESCUENTOS APLICADOS -->
-    <?php
-    $descuentosAplicados = [];
-    foreach ($invoice->invoice_items as $item) {
-        if ((float)$item->descuento > 0) {
-            $descuentosAplicados[] = [
-                'descripcion' => $item->descripcion,
-                'descuento' => (float)$item->descuento,
-                'tipo' => $item->descuento_tipo ?? 'porcentaje'
-            ];
-        }
-    }
-    ?>
-    <?php if (!empty($descuentosAplicados) && count($descuentosAplicados) > 0): ?>
-        <div class="dashed-divider"></div>
-        <div class="text-center mb-5" style="font-size: 11px;">DESCUENTOS APLICADOS</div>
-        <table class="totals-table" style="font-size: 9px;">
-            <?php foreach ($descuentosAplicados as $desc): ?>
-                <tr>
-                    <td style="width: 60%;" class="text-left">
-                        <?= h($desc['descripcion']) ?>
-                    </td>
-                    <td style="width: 40%;" class="text-right">
-                        <?php if ($desc['tipo'] === 'porcentaje'): ?>
-                            −<?= number_format((float) $desc['descuento'], 2) ?>%
-                        <?php else: ?>
-                            −S/ <?= number_format((float) $desc['descuento'], 2) ?>
+                    <td class="text-left"><?= number_format((float) $item->cantidad, 2) ?></td>
+                    <td class="text-left">
+                        <?= h($item->descripcion) ?>
+                        <?php if ((string) ($item->tip_afe_igv ?? '10') === '20'): ?>
+                            <span style="font-size: 7px;">(EXON.)</span>
                         <?php endif; ?>
                     </td>
+                    <td class="text-right"><?= number_format((float) $item->precio_unitario, 2) ?></td>
+                    <td class="text-right"><?= number_format((float) $item->total, 2) ?></td>
                 </tr>
             <?php endforeach; ?>
-        </table>
+        </tbody>
+    </table>
+
+    <!-- TOTALES + QR -->
+    <table class="totals-wrap">
+        <tr>
+            <?php if (!empty($qrUrl)): ?>
+                <td class="qr-cell"><img src="<?= h($qrUrl) ?>" alt="QR"></td>
+            <?php endif; ?>
+            <td>
+                <table class="totals-table">
+                    <?php if ($totalDescuentos > 0): ?>
+                        <tr>
+                            <td class="text-left">Total Desc. Item</td>
+                            <td class="text-right">: S/ <?= number_format($totalDescuentos, 2) ?></td>
+                        </tr>
+                    <?php endif; ?>
+
+                    <?php if ($montoGravado > 0): ?>
+                        <tr>
+                            <td class="text-left">Venta Gravada</td>
+                            <td class="text-right">: S/ <?= number_format($montoGravado, 2) ?></td>
+                        </tr>
+                    <?php endif; ?>
+
+                    <?php if ($montoExonerado > 0): ?>
+                        <tr>
+                            <td class="text-left">Venta Exonerada</td>
+                            <td class="text-right">: S/ <?= number_format($montoExonerado, 2) ?></td>
+                        </tr>
+                    <?php endif; ?>
+
+                    <tr>
+                        <td class="text-left">Total I.G.V.</td>
+                        <td class="text-right">: S/ <?= number_format((float) $invoice->igv, 2) ?></td>
+                    </tr>
+
+                    <tr>
+                        <td class="text-left">Total Precio de Venta</td>
+                        <td class="text-right">: S/ <?= number_format((float) $invoice->total, 2) ?></td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- MONTO EN LETRAS -->
+    <div class="son">SON: <?= h($montoLetras) ?></div>
+
+    <!-- INFORMACIÓN ADICIONAL -->
+    <?php if ($infoAdicional !== ''): ?>
+        <div class="info-adicional">
+            <div>Información Adicional</div>
+            <div><?= nl2br(h($infoAdicional)) ?></div>
+        </div>
     <?php endif; ?>
 
+    <!-- FOOTER -->
     <div class="footer">
         <?php if ($esInterno): ?>
+            <div class="gracias">GRACIAS POR SU PREFERENCIA</div>
             <div>Documento: Nota de Venta</div>
             <div>Uso: Constancia interna</div>
             <div>No enviada a SUNAT</div>
         <?php else: ?>
-            <div>GRACIAS POR SU PREFERENCIA</div>
-            <div style="margin-top: 3px;">Representación impresa de un comprobante electrónico.</div>
+            <div class="gracias">"GRACIAS POR SU PREFERENCIA"</div>
+            <div>Representación impresa de la <?= h($tituloDocumento) ?>.</div>
+            <div>Puede consultar este documento en www.sunat.gob.pe con su clave SOL.</div>
         <?php endif; ?>
     </div>
 
 </body>
+
 </html>

@@ -611,6 +611,9 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                 'estado' => $tipoDoc === 'RI' ? 'RECIBO_INTERNO' : 'PENDIENTE_SUNAT',
                 'forma_pago' => $formaPago, // ← AGREGAR
 
+                // Información adicional del comprobante
+                'observaciones' => trim((string) ($data['observaciones'] ?? '')),
+
 
             ];
 
