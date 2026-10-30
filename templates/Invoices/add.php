@@ -1325,6 +1325,19 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
             return false;
         }
 
+        // Solo la nota de venta admite ítems a costo 0
+        if (tipoDoc.value !== 'RI') {
+            const precioEnCero = Array.from(itemsContainer.querySelectorAll('.item-row .precio-input'))
+                .find(input => !(parseFloat(input.value || 0) > 0));
+            if (precioEnCero) {
+                precioEnCero.classList.add('is-invalid');
+                precioEnCero.focus();
+                alert('Hay ítems con precio S/ 0.00. Solo las notas de venta pueden tener ítems a costo 0.');
+                e.preventDefault();
+                return false;
+            }
+        }
+
         // Validar cantidades vs stock antes de enviar
         let stockError = false;
         document.querySelectorAll('.item-row').forEach(row => {
@@ -1406,6 +1419,12 @@ btnGenerarCuotas.addEventListener('click', generarCuotas);
 
         const metodosValidos = paymentMethods.filter(pm => pm.metodo && pm.monto > 0);
         paymentMethodsJson.value = JSON.stringify(metodosValidos);
+
+        // Nota de venta a costo 0: no hay nada que cobrar
+        if (tipoDoc.value === 'RI' && total === 0) {
+            paymentMethodsJson.value = '[]';
+            return true;
+        }
 
         if (metodosValidos.length === 0) {
             alert('Debes agregar al menos un método de pago con monto válido.');

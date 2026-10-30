@@ -47,7 +47,6 @@ class InvoicesController extends AppController
             'HistoriasClinicas',
             'Doctores',
             'Users',
-            'InvoiceDistribuciones',
             'InvoiceCuotas' => function ($q) {
                 return $q->order(['InvoiceCuotas.numero_cuota' => 'ASC']);
             },
@@ -839,8 +838,15 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                         }
                     }
 
-                    if ($descripcion === '' || $precioUnitario <= 0) {
+                    if ($descripcion === '') {
                         continue;
+                    }
+                    // Solo la nota de venta admite ítems a costo 0; boletas y facturas van a SUNAT.
+                    if ($precioUnitario < 0 || ($precioUnitario == 0 && $tipoDoc !== 'RI')) {
+                        throw new \RuntimeException(sprintf(
+                            'El ítem "%s" tiene precio S/ 0.00. Solo las notas de venta pueden tener ítems a costo 0.',
+                            $descripcion
+                        ));
                     }
                     if (empty($nombreSunat)) {
                         $nombreSunat = $descripcion;
@@ -976,7 +982,10 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                     throw new \RuntimeException('No se pudo actualizar totales de invoice');
                 }
 
-                if ($formaPago === 'CONTADO') {
+                // Nota de venta a costo 0: no hay nada que cobrar ni que registrar en caja.
+                $esNotaVentaSinCosto = $tipoDoc === 'RI' && round((float) $invoice->total, 2) == 0.0;
+
+                if ($formaPago === 'CONTADO' && !$esNotaVentaSinCosto) {
     // ============================================================
     // FLUJO EXISTENTE — SIN CAMBIOS (pago contado, caja_movimientos)
     // ============================================================
@@ -1039,7 +1048,7 @@ if ($this->request->getQuery('sin_doctor') === '1') {
             throw new \RuntimeException('No se pudo guardar el movimiento de caja: ' . json_encode($movimiento->getErrors()));
         }
     }
-} else {
+} elseif ($formaPago !== 'CONTADO') {
     $invoiceTotal = round((float) $invoice->total, 2);
 
     if (empty($cuotasInput) || !is_array($cuotasInput)) {
@@ -2216,8 +2225,25 @@ public function comprobanteCuota($cuotaId)
 
         $html = $this->render('pdf')->getBody();
 
+        // Primera pasada en una hoja muy alta solo para medir hasta dónde llega el contenido;
+        // la segunda usa ese alto exacto para que el ticket no tenga espacio en blanco al final.
+        $altoContenido = 0.0;
+        $medidor = new Dompdf($options);
+        $medidor->setCallbacks([[
+            'event' => 'end_frame',
+            'f' => function ($frame) use (&$altoContenido): void {
+                if (strtolower($frame->get_node()->nodeName) === 'body') {
+                    $altoContenido = max($altoContenido, $frame->get_position('y') + $frame->get_margin_height());
+                }
+            },
+        ]]);
+        $medidor->loadHtml((string) $html, 'UTF-8');
+        $medidor->setPaper([0, 0, 161.5, 5000], 'portrait');
+        $medidor->render();
+        $altoPagina = $altoContenido > 0 ? ceil($altoContenido) + 10 : 500.5;
+
         $dompdf->loadHtml((string) $html, 'UTF-8');
-        $dompdf->setPaper([0, 0, 161.5, 500.5], 'portrait');
+        $dompdf->setPaper([0, 0, 161.5, $altoPagina], 'portrait');
         $dompdf->render();
 
         $subFolder = $this->obtenerSubcarpetaPdf($invoice);

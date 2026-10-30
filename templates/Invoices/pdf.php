@@ -44,15 +44,16 @@ $numeroDocumento = ($invoice->serie && $invoice->correlativo)
 $etiquetaDoc = $esFactura ? 'R.U.C.' : 'D.N.I.';
 
 /* ── FORMA DE PAGO (desde caja_movimientos) ── */
+// Monto pagado por método (lo recibido menos el vuelto), sumando si un método se repite.
 $paymentMethods = [];
 if (!empty($invoice->caja_movimientos)) {
     foreach ($invoice->caja_movimientos as $mov) {
-        if (!empty($mov->metodo_pago) && (float) $mov->monto_recibido > 0) {
-            $paymentMethods[] = $mov->metodo_pago;
+        $montoPagado = (float) $mov->monto_recibido - (float) ($mov->vuelto ?? 0);
+        if (!empty($mov->metodo_pago) && $montoPagado > 0) {
+            $paymentMethods[$mov->metodo_pago] = ($paymentMethods[$mov->metodo_pago] ?? 0) + $montoPagado;
         }
     }
 }
-$formaPago = 'Contado' . (!empty($paymentMethods) ? ' - ' . implode(', ', array_unique($paymentMethods)) : '');
 
 /* ── MONTO EN LETRAS ── */
 if (!function_exists('montoEnLetras')) {
@@ -137,8 +138,8 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
         font-family: Arial, Helvetica, sans-serif;
         background-color: #fff;
         margin: 0 auto;
-        padding: 5px;
-        font-size: 10px;
+        padding: 4px;
+        font-size: 8px;
         width: 54mm;
 
         -webkit-font-smoothing: none !important;
@@ -154,63 +155,62 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
     .text-right  { text-align: right; }
     .text-left   { text-align: left; }
 
-    /* ── ENCABEZADO ── */
+    /* ── ENCABEZADO: logo a la izquierda, datos de la empresa a la derecha ── */
     .header {
-        text-align: center;
-        margin-bottom: 6px;
-    }
-    .header img {
-        max-width: 60px;
-        height: auto;
-        margin-bottom: 5px;
-    }
-    .company-name {
-        font-size: 12px;
-        line-height: 1.2;
+        width: 100%;
+        border-collapse: collapse;
         margin-bottom: 3px;
+    }
+    .header td { vertical-align: middle; padding: 0; }
+    .logo-cell { width: 30%; padding-right: 3px !important; }
+    .logo-cell img { width: 100%; height: auto; display: block; }
+    .company-name {
+        font-size: 8.5px;
+        line-height: 1.15;
+        margin-bottom: 1px;
         text-transform: uppercase;
     }
     .subtitle {
-        font-size: 9px;
-        line-height: 1.35;
+        font-size: 6.5px;
+        line-height: 1.25;
         text-transform: uppercase;
     }
 
     /* ── CAJA DEL DOCUMENTO (bordes redondeados) ── */
     .doc-box {
         border: 1px solid #000000;
-        border-radius: 10px;
-        padding: 5px 4px;
-        margin: 6px 0;
+        border-radius: 8px;
+        padding: 2px 4px;
+        margin: 3px 0;
         text-align: center;
-        font-size: 10px;
-        line-height: 1.4;
+        font-size: 8px;
+        line-height: 1.3;
     }
 
     /* ── DATOS DEL CLIENTE ── */
     .client-data {
-        font-size: 9px;
-        line-height: 1.5;
-        margin-bottom: 4px;
+        font-size: 7.5px;
+        line-height: 1.35;
+        margin-bottom: 3px;
     }
 
     /* ── TABLA DE ITEMS ── */
     .items-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 9px;
+        font-size: 7.5px;
         border-top: 1px solid #000000;
         border-bottom: 1px solid #000000;
-        margin-bottom: 4px;
+        margin-bottom: 3px;
     }
     .items-table th {
-        padding: 3px 0;
-        font-size: 8px;
+        padding: 2px 0;
+        font-size: 6.5px;
         border-bottom: 1px solid #000000;
         vertical-align: bottom;
     }
     .items-table td {
-        padding: 2px 0;
+        padding: 1px 0;
         vertical-align: top;
     }
 
@@ -218,7 +218,7 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
     .totals-wrap {
         width: 100%;
         border-collapse: collapse;
-        margin-bottom: 3px;
+        margin-bottom: 2px;
     }
     .totals-wrap td { vertical-align: middle; }
     .qr-cell { width: 26%; padding-right: 3px; }
@@ -227,56 +227,67 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
     .totals-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 9px;
+        font-size: 7.5px;
     }
-    .totals-table td { padding: 2px 0; }
+    .totals-table td { padding: 1px 0; }
 
     /* ── MONTO EN LETRAS ── */
     .son {
         border-top: 1px solid #000000;
         border-bottom: 1px solid #000000;
-        padding: 3px 0;
+        padding: 2px 0;
         text-align: center;
-        font-size: 9px;
-        margin-bottom: 4px;
+        font-size: 7px;
+        margin-bottom: 2px;
+    }
+
+    /* ── FORMA DE PAGO ── */
+    .forma-pago {
+        font-size: 7.5px;
+        line-height: 1.3;
+        margin-bottom: 2px;
     }
 
     /* ── INFO ADICIONAL ── */
     .info-adicional {
         text-align: center;
-        font-size: 9px;
-        line-height: 1.4;
-        margin-bottom: 4px;
+        font-size: 7px;
+        line-height: 1.3;
+        margin-bottom: 2px;
     }
 
     /* ── FOOTER ── */
     .footer {
         text-align: center;
-        font-size: 7px;
-        line-height: 1.35;
-        margin-top: 4px;
+        font-size: 6px;
+        line-height: 1.25;
+        margin-top: 2px;
     }
-    .footer .gracias { font-size: 8px; margin-bottom: 3px; }
+    .footer .gracias { font-size: 7px; margin-bottom: 1px; }
     </style>
 </head>
 
 <body>
 
     <!-- ENCABEZADO -->
-    <div class="header">
-        <?php if (!empty($logoUrl)): ?>
-            <div><img src="<?= h($logoUrl) ?>" alt="Logo"></div>
-        <?php endif; ?>
-        <div class="company-name"><?= h($invoice->company->razon_social) ?></div>
-        <div class="subtitle">R.U.C. : <?= h($invoice->company->ruc) ?></div>
-        <div class="subtitle"><?= h($invoice->company->direccion) ?></div>
-        <?php if (!empty($invoice->company->telefono)): ?>
-            <div class="subtitle">Teléfono : <?= h($invoice->company->telefono) ?></div>
-        <?php endif; ?>
-        <?php if (!empty($invoice->company->email)): ?>
-            <div class="subtitle" style="text-transform: none;"><?= h($invoice->company->email) ?></div>
-        <?php endif; ?>
-    </div>
+    <table class="header">
+        <tr>
+            <?php if (!empty($logoUrl)): ?>
+                <td class="logo-cell"><img src="<?= h($logoUrl) ?>" alt="Logo"></td>
+            <?php endif; ?>
+            <td>
+                <div class="company-name"><?= h($invoice->company->razon_social) ?></div>
+                <div class="subtitle">R.U.C. : <?= h($invoice->company->ruc) ?></div>
+                <div class="subtitle"><?= h($invoice->company->direccion) ?></div>
+                <?php if (!empty($invoice->company->telefono)): ?>
+                    <div class="subtitle">Telf. : <?= h($invoice->company->telefono) ?></div>
+                <?php endif; ?>
+                <?php if (!empty($invoice->company->email)): ?>
+                    <div class="subtitle" style="text-transform: none;"><?= h($invoice->company->email) ?></div>
+                <?php endif; ?>
+            </td>
+        </tr>
+    </table>
 
     <!-- TÍTULO + NÚMERO -->
     <div class="doc-box">
@@ -288,10 +299,7 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
     <div class="client-data">
         <div>Cliente : <?= h($invoice->cliente_nombre) ?></div>
         <div><?= $etiquetaDoc ?> : <?= h($invoice->cliente_numero) ?></div>
-        <div>Dirección : <?= h($invoice->cliente_direccion ?: '-') ?></div>
-        <div>Fecha : <?= h($invoice->created?->format('d/m/Y')) ?> &nbsp; Hora : <?= h($invoice->created?->format('H:i')) ?></div>
-        <div>Moneda : SOLES</div>
-        <div>Forma de Pago : <?= h($formaPago) ?></div>
+        <div>Fecha : <?= h($invoice->created?->format('d/m/Y H:i')) ?> &nbsp; Moneda : SOLES</div>
     </div>
 
     <!-- ITEMS -->
@@ -300,8 +308,8 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
             <tr>
                 <th class="text-left" style="width: 14%;">CANT.</th>
                 <th class="text-center" style="width: 42%;">PRODUCTO</th>
-                <th class="text-right" style="width: 20%;">P.<br>UNIT.</th>
-                <th class="text-right" style="width: 24%;">IMPORTE<br>T.</th>
+                <th class="text-right" style="width: 20%;">P.U.</th>
+                <th class="text-right" style="width: 24%;">TOTAL</th>
             </tr>
         </thead>
         <tbody>
@@ -311,7 +319,7 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
                     <td class="text-left">
                         <?= h($item->descripcion) ?>
                         <?php if ((string) ($item->tip_afe_igv ?? '10') === '20'): ?>
-                            <span style="font-size: 7px;">(EXON.)</span>
+                            <span style="font-size: 6px;">(EXON.)</span>
                         <?php endif; ?>
                     </td>
                     <td class="text-right"><?= number_format((float) $item->precio_unitario, 2) ?></td>
@@ -366,6 +374,21 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
 
     <!-- MONTO EN LETRAS -->
     <div class="son">SON: <?= h($montoLetras) ?></div>
+
+    <!-- FORMA DE PAGO -->
+    <div class="forma-pago">
+        <div>Forma de Pago : Contado</div>
+        <?php if (!empty($paymentMethods)): ?>
+            <table class="totals-table">
+                <?php foreach ($paymentMethods as $metodo => $monto): ?>
+                    <tr>
+                        <td class="text-left"><?= h($metodo) ?></td>
+                        <td class="text-right">: S/ <?= number_format($monto, 2) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+        <?php endif; ?>
+    </div>
 
     <!-- INFORMACIÓN ADICIONAL -->
     <?php if ($infoAdicional !== ''): ?>

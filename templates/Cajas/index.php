@@ -6,6 +6,11 @@
         </h3>
 
         <div class="d-flex flex-wrap gap-2">
+            <?php if ($this->Permisos->tieneRol([1])): ?>
+                <a href="<?= $this->Url->build(['action' => 'clave']) ?>" class="btn btn-outline-dark">
+                    <i class="fas fa-key"></i> Clave de caja
+                </a>
+            <?php endif; ?>
             <a href="<?= $this->Url->build(['action' => 'abrir']) ?>" class="btn btn-info">
                 <i class="fas fa-plus-circle"></i> Abrir Caja
             </a>

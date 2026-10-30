@@ -4,6 +4,51 @@
     .btn-outline-ambar:hover, .btn-outline-ambar:focus { color: #fff; background: #92400e; border-color: #92400e; }
     .btn-abrir-caja { color: #fff; background: #0b5a6b; border-color: #0b5a6b; }
     .btn-abrir-caja:hover, .btn-abrir-caja:focus { color: #fff; background: #083f4b; border-color: #083f4b; }
+
+    /* Scroll horizontal: la barra nativa (al final de la tabla) se oculta y se usa una barra
+       flotante pegada al borde inferior de la pantalla, sincronizada con la tabla. */
+    .tabla-comprobantes-wrap {
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .tabla-comprobantes-wrap::-webkit-scrollbar { display: none; }
+    .scroll-x-flotante {
+        position: sticky;
+        bottom: 0;
+        z-index: 5;
+        overflow-x: auto;
+        overflow-y: hidden;
+        background: #fff;
+        border-top: 1px solid #dee2e6;
+    }
+    .scroll-x-flotante > div { height: 1px; }
+    .tabla-comprobantes { font-size: .875rem; }
+    .tabla-comprobantes th,
+    .tabla-comprobantes td { padding: .45rem .5rem; vertical-align: middle; }
+    .tabla-comprobantes thead th { white-space: nowrap; }
+    .tabla-comprobantes .nowrap { white-space: nowrap; }
+    .tabla-comprobantes .cliente-nombre { min-width: 160px; max-width: 260px; }
+
+    /* Columna de acciones fija a la derecha: siempre visible aunque la tabla tenga scroll horizontal */
+    .tabla-comprobantes .col-acciones {
+        position: sticky;
+        right: 0;
+        z-index: 2;
+        background-color: #fff;
+        box-shadow: -6px 0 6px -4px rgba(0, 0, 0, .2);
+    }
+    .tabla-comprobantes thead .col-acciones { background-color: #17a2b8; }
+    .tabla-comprobantes.table-striped tbody tr:nth-of-type(odd) .col-acciones { background-color: #f2f2f2; }
+    .tabla-comprobantes tbody tr.table-danger .col-acciones { background-color: #f5c6cb; }
+    .tabla-comprobantes .acciones-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px;
+        min-width: 140px;
+        max-width: 190px;
+        margin: 0 auto;
+    }
 </style>
 <div class="container-fluid py-4">
     <?= $this->Flash->render() ?>
@@ -138,23 +183,21 @@
     </div>
 
     <!-- TABLA DE COMPROBANTES -->
-    <div class="table-responsive card">
-        <table class="table table-striped mb-0 align-middle">
+    <div class="card mb-0">
+    <div class="tabla-comprobantes-wrap" id="tablaComprobantesWrap">
+        <table class="table table-striped mb-0 align-middle tabla-comprobantes">
 
             <thead class="bg-info text-white">
                 <tr>
                     <th>ID</th>
                     <th>Fecha</th>
-                    <th>Serie</th>
-                    <th>Número</th>
-                    <th>Tipo</th>
+                    <th>Comprobante</th>
                     <th>Cliente</th>
-                    <th>Documento</th>
                     <th>Doctor</th>
                     <th>Total</th>
                     <th>Pago</th>
                     <th>Estado</th>
-                    <th class="text-center">Acciones</th>
+                    <th class="text-center col-acciones">Acciones</th>
                 </tr>
             </thead>
 
@@ -190,15 +233,11 @@
                         <span class="badge bg-secondary">#<?= $inv->id ?></span>
                     </td>
 
-                    <td>
-                        <small><?= $inv->created ? $inv->created->format('d/m/Y H:i') : '-' ?></small>
+                    <td class="nowrap">
+                        <small><?= $inv->created ? $inv->created->format('d/m/Y') : '-' ?><br><?= $inv->created ? $inv->created->format('H:i') : '' ?></small>
                     </td>
 
-                    <td><?= h($inv->serie ?: 'RI') ?></td>
-
-                    <td><?= h($inv->correlativo ?: $inv->id) ?></td>
-
-                    <td>
+                    <td class="nowrap">
                         <?php
                         if ($inv->tipo_doc === '01') {
                             echo '<span class="badge bg-primary">Factura</span>';
@@ -208,11 +247,15 @@
                             echo '<span class="badge bg-dark">Nota de Venta</span>';
                         }
                         ?>
+                        <div><small class="fw-semibold"><?= h(($inv->serie ?: 'RI') . '-' . ($inv->correlativo ?: $inv->id)) ?></small></div>
                     </td>
 
-                    <td><?= h($inv->cliente_nombre) ?></td>
-
-                    <td><?= h($inv->cliente_numero ?: '-') ?></td>
+                    <td class="cliente-nombre">
+                        <?= h($inv->cliente_nombre) ?>
+                        <?php if ($inv->cliente_numero): ?>
+                            <div><small class="text-muted"><?= h($inv->cliente_numero) ?></small></div>
+                        <?php endif; ?>
+                    </td>
 
                     <td>
                         <?php if ($inv->doctor_id && $inv->doctore): ?>
@@ -226,31 +269,6 @@
 
                     <td>
                         <strong>S/ <?= number_format((float)$inv->total, 2) ?></strong>
-                        <?php if (!empty($inv->invoice_distribuciones)): ?>
-                            <?php
-                            $totLab = 0.0;
-                            $totMat = 0.0;
-                            foreach ($inv->invoice_distribuciones as $dist) {
-                                if ($dist->tipo === 'LABORATORIO') {
-                                    $totLab += (float) $dist->monto;
-                                } else {
-                                    $totMat += (float) $dist->monto;
-                                }
-                            }
-                            ?>
-                            <div class="mt-1">
-                                <?php if ($totLab > 0): ?>
-                                    <span class="badge bg-warning text-dark" title="Distribuido a laboratorio(s)">
-                                        <i class="fas fa-flask"></i> Lab: S/ <?= number_format($totLab, 2) ?>
-                                    </span>
-                                <?php endif; ?>
-                                <?php if ($totMat > 0): ?>
-                                    <span class="badge bg-secondary" title="Distribuido a materiales">
-                                        Mat: S/ <?= number_format($totMat, 2) ?>
-                                    </span>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
                     </td>
 
                     <td>
@@ -296,10 +314,11 @@
                         </span>
                     </td>
 
-                    <td class="text-center">
+                    <td class="text-center col-acciones">
+                        <div class="acciones-wrap">
 
                         <a href="<?= $this->Url->build(['action' => 'view', $inv->id]) ?>"
-                           class="btn btn-info btn-sm">
+                           class="btn btn-info btn-sm" title="Ver">
                            <i class="fas fa-eye"></i>
                         </a>
 
@@ -321,21 +340,21 @@
 
                         <?php if ($inv->xml_path): ?>
                             <a href="<?= $this->Url->build('/' . ltrim($inv->xml_path, '/')) ?>" target="_blank"
-                               class="btn btn-secondary btn-sm">
+                               class="btn btn-secondary btn-sm" title="Descargar XML">
                                <i class="fas fa-code"></i> XML
                             </a>
                         <?php endif; ?>
 
                         <?php if ($inv->cdr_path): ?>
                             <a href="<?= $this->Url->build('/' . ltrim($inv->cdr_path, '/')) ?>" target="_blank"
-                               class="btn btn-secondary btn-sm">
+                               class="btn btn-secondary btn-sm" title="Descargar CDR">
                                <i class="fas fa-file"></i> CDR
                             </a>
                         <?php endif; ?>
 
                         <a href="<?= $this->Url->build(['action' => 'pdf', $inv->id]) ?>"
                            target="_blank"
-                           class="btn btn-danger btn-sm">
+                           class="btn btn-danger btn-sm" title="PDF">
                            <i class="fas fa-file-pdf"></i>
                         </a>
 
@@ -359,6 +378,7 @@
                             </a>
                         <?php endif; ?>
 
+                        </div>
                     </td>
 
                 </tr>
@@ -404,6 +424,36 @@
 
         </table>
     </div>
+    <div class="scroll-x-flotante" id="scrollXFlotante"><div></div></div>
+    </div>
+
+    <script>
+    (function () {
+        const wrap = document.getElementById('tablaComprobantesWrap');
+        const barra = document.getElementById('scrollXFlotante');
+        if (!wrap || !barra) return;
+        const relleno = barra.firstElementChild;
+        let sincronizando = false;
+
+        function ajustar() {
+            relleno.style.width = wrap.scrollWidth + 'px';
+            // Sin desborde horizontal no hace falta la barra
+            barra.style.display = wrap.scrollWidth > wrap.clientWidth ? 'block' : 'none';
+        }
+        function sincronizar(origen, destino) {
+            if (sincronizando) return;
+            sincronizando = true;
+            destino.scrollLeft = origen.scrollLeft;
+            requestAnimationFrame(() => { sincronizando = false; });
+        }
+
+        barra.addEventListener('scroll', () => sincronizar(barra, wrap));
+        wrap.addEventListener('scroll', () => sincronizar(wrap, barra));
+        window.addEventListener('resize', ajustar);
+        window.addEventListener('load', ajustar);
+        ajustar();
+    })();
+    </script>
 
     <!-- PAGINADOR -->
     <div class="paginator mt-3">

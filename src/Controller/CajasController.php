@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Model\Table\ConfiguracionesTable;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
@@ -744,5 +745,107 @@ public function agregarIngreso($id)
     {
         parent::beforeFilter($event);
         // Todas las acciones requieren autenticación
+
+        // Si el administrador definió una clave de caja, los demás usuarios deben
+        // ingresarla una vez por sesión antes de usar cualquier pantalla de Caja.
+        $accion = $this->request->getParam('action');
+        if (in_array($accion, ['desbloquear', 'clave'], true) || !$this->cajaBloqueada()) {
+            return;
+        }
+
+        $event->setResult($this->redirect([
+            'action' => 'desbloquear',
+            '?' => ['redirect' => $this->request->getRequestTarget()],
+        ]));
+        $event->stopPropagation();
+    }
+
+    /**
+     * Pide la clave de caja y, si es correcta, la deja habilitada hasta que termine la sesión.
+     */
+    public function desbloquear()
+    {
+        $destino = (string)$this->request->getQuery('redirect', '');
+        // Solo rutas internas, para no redirigir fuera del sistema
+        if ($destino === '' || !str_starts_with($destino, '/') || str_starts_with($destino, '//')) {
+            $destino = '/cajas';
+        }
+
+        if (!$this->cajaBloqueada()) {
+            return $this->redirect($destino);
+        }
+
+        if ($this->request->is('post')) {
+            $hash = $this->fetchTable('Configuraciones')->obtener(ConfiguracionesTable::CAJA_PASSWORD_HASH);
+            if ($hash && password_verify((string)$this->request->getData('clave'), $hash)) {
+                $this->request->getSession()->write(self::SESION_CAJA, $hash);
+
+                return $this->redirect($destino);
+            }
+
+            $this->set('error', 'La clave de caja es incorrecta.');
+        }
+
+        $this->set(compact('destino'));
+    }
+
+    /**
+     * Solo el administrador: define, cambia o quita la clave de caja.
+     */
+    public function clave()
+    {
+        if (!$this->esAdministrador()) {
+            echo '<script>alert("❌ Solo el administrador puede configurar la clave de caja"); window.history.back();</script>';
+            exit;
+        }
+
+        $Configuraciones = $this->fetchTable('Configuraciones');
+        $tieneClave = (bool)$Configuraciones->obtener(ConfiguracionesTable::CAJA_PASSWORD_HASH);
+
+        if ($this->request->is('post')) {
+            if ($this->request->getData('quitar')) {
+                $Configuraciones->guardar(ConfiguracionesTable::CAJA_PASSWORD_HASH, null);
+
+                return $this->redirect(['action' => 'index']);
+            }
+
+            $clave = (string)$this->request->getData('clave');
+            $confirmacion = (string)$this->request->getData('confirmacion');
+
+            if (mb_strlen($clave) < 4) {
+                $this->set('error', 'La clave debe tener al menos 4 caracteres.');
+            } elseif ($clave !== $confirmacion) {
+                $this->set('error', 'La clave y su confirmación no coinciden.');
+            } else {
+                // Al cambiar el hash, las sesiones que ya habían ingresado la clave anterior vuelven a pedirla.
+                $Configuraciones->guardar(ConfiguracionesTable::CAJA_PASSWORD_HASH, password_hash($clave, PASSWORD_DEFAULT));
+
+                return $this->redirect(['action' => 'index']);
+            }
+        }
+
+        $this->set(compact('tieneClave'));
+    }
+
+    private const SESION_CAJA = 'Caja.claveDesbloqueada';
+
+    private function esAdministrador(): bool
+    {
+        return $this->Permisos->tieneRol([1]);
+    }
+
+    private function cajaBloqueada(): bool
+    {
+        if ($this->esAdministrador()) {
+            return false;
+        }
+
+        $hash = $this->fetchTable('Configuraciones')->obtener(ConfiguracionesTable::CAJA_PASSWORD_HASH);
+        if (!$hash) {
+            return false;
+        }
+
+        // Se guarda el hash vigente en la sesión: si el administrador cambia la clave, deja de coincidir.
+        return $this->request->getSession()->read(self::SESION_CAJA) !== $hash;
     }
 }
