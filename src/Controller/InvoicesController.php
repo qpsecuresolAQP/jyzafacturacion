@@ -716,6 +716,9 @@ if ($this->request->getQuery('sin_doctor') === '1') {
 
                     $descripcion = trim((string) ($row['descripcion'] ?? ''));
                     $precioUnitario = (float) ($row['precio_unitario'] ?? 0);
+                    // Sin precio se usa el del catálogo; en nota de venta un 0 escrito a propósito se respeta.
+                    $usarPrecioCatalogo = $precioUnitario <= 0
+                        && !($tipoDoc === 'RI' && trim((string) ($row['precio_unitario'] ?? '')) !== '');
                     $codigoProducto = trim((string) ($row['codigo_producto'] ?? ''));
                     $unidad = trim((string) ($row['unidad'] ?? 'NIU'));
 
@@ -734,7 +737,7 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                             $descripcion = (string) $tratamiento->nombre;
                         }
 
-                        if ($precioUnitario <= 0) {
+                        if ($usarPrecioCatalogo) {
                             $precioUnitario = (float) $tratamiento->costo;
                         }
 
@@ -767,7 +770,7 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                             $descripcion = (string) $producto->nombre;
                         }
 
-                        if ($precioUnitario <= 0) {
+                        if ($usarPrecioCatalogo) {
                             $precioUnitario = (float) $producto->precio;
                         }
 
@@ -801,7 +804,7 @@ if ($this->request->getQuery('sin_doctor') === '1') {
                             $descripcion = (string) $examen->nombre;
                         }
 
-                        if ($precioUnitario <= 0) {
+                        if ($usarPrecioCatalogo) {
                             $precioUnitario = (float) $examen->precio;
                         }
 
