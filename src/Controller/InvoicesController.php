@@ -1865,7 +1865,7 @@ public function comprobanteCuota($cuotaId)
             ]);
         })
         ->order(['correlativo' => 'ASC'])
-        ->limit(30)
+        ->limit(100)
         ->all()
         ->toList();
 
