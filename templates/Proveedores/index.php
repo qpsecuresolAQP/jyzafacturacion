@@ -50,11 +50,17 @@
                                     ['escape' => false, 'title' => 'Editar', 'class' => 'btn btn-warning btn-sm openModal']
                                 ) ?>
                             <?php endif; ?>
-                            <?php if ($this->Permisos->tiene('Proveedores', 'delete')): ?>
+                            <?php if ($proveedor->activo && $this->Permisos->tiene('Proveedores', 'delete')): ?>
                                 <?= $this->Form->postLink(
-                                    '<i class="fas fa-trash"></i>',
+                                    '<i class="fas fa-ban"></i>',
                                     ['action' => 'delete', $proveedor->id],
-                                    ['escape' => false, 'title' => 'Eliminar', 'class' => 'btn btn-danger btn-sm', 'confirm' => __('¿Seguro que desea eliminar el proveedor "{0}"?', $proveedor->nombre)]
+                                    ['escape' => false, 'title' => 'Desactivar', 'class' => 'btn btn-danger btn-sm', 'confirm' => __('¿Desactivar el proveedor "{0}"? Ya no aparecerá para nuevos ingresos, pero se conserva su historial.', $proveedor->nombre)]
+                                ) ?>
+                            <?php elseif (!$proveedor->activo && $this->Permisos->tiene('Proveedores', 'reactivar')): ?>
+                                <?= $this->Form->postLink(
+                                    '<i class="fas fa-check-circle"></i>',
+                                    ['action' => 'reactivar', $proveedor->id],
+                                    ['escape' => false, 'title' => 'Reactivar', 'class' => 'btn btn-success btn-sm', 'confirm' => __('¿Reactivar el proveedor "{0}"?', $proveedor->nombre)]
                                 ) ?>
                             <?php endif; ?>
                         </td>

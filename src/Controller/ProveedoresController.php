@@ -78,14 +78,31 @@ class ProveedoresController extends AppController
         }
     }
 
+    /**
+     * Eliminación lógica: el proveedor se desactiva (no se borra) para conservar
+     * su historial de compras y los productos que lo referencian.
+     */
     public function delete($id = null)
     {
         $this->request->allowMethod(['post', 'delete']);
         $proveedor = $this->Proveedores->get($id);
-        if ($this->Proveedores->delete($proveedor)) {
-            $this->Flash->success(__('Proveedor eliminado correctamente.'));
+        if ($this->Proveedores->save($this->Proveedores->patchEntity($proveedor, ['activo' => false]))) {
+            $this->Flash->success(__('Proveedor desactivado correctamente.'));
         } else {
-            $this->Flash->error(__('No se pudo eliminar el proveedor.'));
+            $this->Flash->error(__('No se pudo desactivar el proveedor.'));
+        }
+
+        return $this->redirect(['action' => 'index']);
+    }
+
+    public function reactivar($id = null)
+    {
+        $this->request->allowMethod(['post']);
+        $proveedor = $this->Proveedores->get($id);
+        if ($this->Proveedores->save($this->Proveedores->patchEntity($proveedor, ['activo' => true]))) {
+            $this->Flash->success(__('Proveedor reactivado correctamente.'));
+        } else {
+            $this->Flash->error(__('No se pudo reactivar el proveedor.'));
         }
 
         return $this->redirect(['action' => 'index']);

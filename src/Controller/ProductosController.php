@@ -159,9 +159,14 @@ class ProductosController extends AppController
             ->order(['nombre' => 'ASC'])
             ->toArray();
 
+        // Proveedores activos, más el que el producto ya tiene aunque esté desactivado,
+        // para que al guardar no se pierda.
         $proveedores = $this->Productos->Proveedores
             ->find('list', keyField: 'id', valueField: 'nombre')
-            ->where(['activo' => 1])
+            ->where(['OR' => [
+                'activo' => 1,
+                'id' => (int)$producto->getOriginal('proveedor_id'),
+            ]])
             ->order(['nombre' => 'ASC'])
             ->toArray();
 
