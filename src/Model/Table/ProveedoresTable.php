@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace App\Model\Table;
 
+use ArrayObject;
+use Cake\Datasource\EntityInterface;
+use Cake\Event\EventInterface;
 use Cake\ORM\Table;
 use Cake\Validation\Validator;
 
@@ -66,5 +69,22 @@ class ProveedoresTable extends Table
             ->notEmptyString('activo');
 
         return $validator;
+    }
+
+    /**
+     * Mantiene `ruc` y tipo/número de documento en sincronía: el formulario de Proveedores
+     * solo envía `ruc`, y la búsqueda por documento de Ingreso de Mercadería envía tipo/número.
+     */
+    public function beforeSave(EventInterface $event, EntityInterface $entity, ArrayObject $options): void
+    {
+        $ruc = trim((string)$entity->get('ruc'));
+        $numero = trim((string)$entity->get('numero_documento'));
+
+        if ($entity->isDirty('ruc') && $ruc !== '') {
+            $entity->set('tipo_documento', '6');
+            $entity->set('numero_documento', $ruc);
+        } elseif ($entity->get('tipo_documento') === '6' && $numero !== '') {
+            $entity->set('ruc', $numero);
+        }
     }
 }

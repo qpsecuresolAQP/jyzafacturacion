@@ -285,6 +285,14 @@
                             </a>
                         </li>
                         <?php endif; ?>
+                        <?php if ($this->Permisos->tiene('IngresosMercaderia', 'reporte')): ?>
+                        <li class="nav-item">
+                            <a href="<?= $this->Url->build(['controller' => 'IngresosMercaderia', 'action' => 'reporte']) ?>" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Reporte de Compras</p>
+                            </a>
+                        </li>
+                        <?php endif; ?>
                         <?php if ($this->Permisos->tiene('ProductoMovimientos', 'perdidas')): ?>
                         <li class="nav-item">
                             <a href="<?= $this->Url->build(['controller' => 'ProductoMovimientos', 'action' => 'perdidas']) ?>" class="nav-link">

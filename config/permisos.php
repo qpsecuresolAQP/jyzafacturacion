@@ -30,7 +30,7 @@ return [
 
         'Medicamentos' => ['buscar'],
         'Examenes' => ['buscar'],
-        'IngresosMercaderia' => ['buscarProducto'],
+        'IngresosMercaderia' => ['buscarProducto', 'buscarProveedor'],
         'RecetasMedicamentos' => ['buscarMedicamentos'],
         'Recetas' => ['getByConsulta'],
         'Consultas' => ['buscarCie', 'exportConsultasPdf'],

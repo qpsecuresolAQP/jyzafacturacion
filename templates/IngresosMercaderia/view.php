@@ -55,7 +55,7 @@ $sim = $ingreso->moneda === 'DOLARES' ? '$' : 'S/';
             <table class="table table-striped mb-0">
                 <thead class="bg-info text-white">
                     <tr>
-                        <th>Producto</th>
+                        <th>Ítem</th>
                         <th class="text-end">Cantidad</th>
                         <th class="text-end">P. Unit. (neto)</th>
                         <th class="text-end">Subtotal (neto)</th>
@@ -68,7 +68,14 @@ $sim = $ingreso->moneda === 'DOLARES' ? '$' : 'S/';
                 <tbody>
                     <?php foreach ($ingreso->ingresos_mercaderia_detalle as $d): ?>
                         <tr>
-                            <td><?= h($d->producto->nombre ?? ('Producto #' . $d->producto_id)) ?></td>
+                            <td>
+                                <?php if (($d->tipo_item ?? 'producto') === 'tratamiento'): ?>
+                                    <span class="badge bg-success">Procedimiento</span>
+                                <?php elseif (($d->tipo_item ?? 'producto') === 'examen'): ?>
+                                    <span class="badge bg-warning text-dark">Examen</span>
+                                <?php endif; ?>
+                                <?= h($d->nombre_item) ?>
+                            </td>
                             <td class="text-end"><?= $this->Number->format($d->cantidad) ?></td>
                             <td class="text-end"><?= $sim ?> <?= number_format((float)$d->precio_unitario, 4) ?></td>
                             <td class="text-end"><?= $sim ?> <?= number_format((float)$d->subtotal, 2) ?></td>

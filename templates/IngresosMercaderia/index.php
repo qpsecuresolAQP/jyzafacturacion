@@ -43,6 +43,9 @@
         <?= $this->Form->end() ?>
 
         <div class="d-flex gap-2">
+            <?php if ($this->Permisos->tiene('IngresosMercaderia', 'reporte')): ?>
+                <?= $this->Html->link('<i class="fas fa-chart-bar"></i> Reporte de Compras', ['action' => 'reporte'], ['escape' => false, 'class' => 'btn btn-outline-info']) ?>
+            <?php endif; ?>
             <?php if ($this->Permisos->tiene('IngresosMercaderia', 'vencimientos')): ?>
                 <?= $this->Html->link('<i class="fas fa-calendar-times"></i> Vencimientos', ['action' => 'vencimientos'], ['escape' => false, 'class' => 'btn btn-outline-warning']) ?>
             <?php endif; ?>

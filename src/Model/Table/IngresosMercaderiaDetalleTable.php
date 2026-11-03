@@ -22,18 +22,41 @@ class IngresosMercaderiaDetalleTable extends Table
             'joinType' => 'INNER',
         ]);
 
+        // Cada línea es un producto, un procedimiento o un examen (según tipo_item).
         $this->belongsTo('Productos', [
             'foreignKey' => 'producto_id',
-            'joinType' => 'INNER',
+            'joinType' => 'LEFT',
+        ]);
+
+        $this->belongsTo('Tratamientos', [
+            'foreignKey' => 'tratamiento_id',
+            'joinType' => 'LEFT',
+        ]);
+
+        $this->belongsTo('Examenes', [
+            'foreignKey' => 'examen_id',
+            'joinType' => 'LEFT',
         ]);
     }
 
     public function validationDefault(Validator $validator): Validator
     {
         $validator
+            ->inList('tipo_item', ['producto', 'tratamiento', 'examen'])
+            ->notEmptyString('tipo_item');
+
+        $validator
             ->integer('producto_id')
-            ->requirePresence('producto_id', 'create')
-            ->notEmptyString('producto_id');
+            ->requirePresence('producto_id', fn($context) => ($context['data']['tipo_item'] ?? 'producto') === 'producto')
+            ->notEmptyString('producto_id', null, fn($context) => ($context['data']['tipo_item'] ?? 'producto') === 'producto');
+
+        $validator
+            ->integer('tratamiento_id')
+            ->notEmptyString('tratamiento_id', null, fn($context) => ($context['data']['tipo_item'] ?? '') === 'tratamiento');
+
+        $validator
+            ->integer('examen_id')
+            ->notEmptyString('examen_id', null, fn($context) => ($context['data']['tipo_item'] ?? '') === 'examen');
 
         $validator
             ->decimal('cantidad')

@@ -35,6 +35,33 @@ $hoy = date('Y-m-d\TH:i');
         <div class="card-header"><strong><i class="fas fa-file-invoice-dollar"></i> Documento de compra</strong></div>
         <div class="card-body">
             <div class="row g-3">
+                <!-- Búsqueda de proveedor por documento: si no existe se registra (SUNAT/RENIEC) -->
+                <div class="col-md-6 mb-2">
+                    <label class="form-label fw-semibold">Documento del proveedor</label>
+                    <div class="input-group">
+                        <select id="prov-tipo-doc" class="form-control" style="max-width: 190px;">
+                            <option value="6">RUC</option>
+                            <option value="1">DNI</option>
+                            <option value="4">Carnet de Extranjería</option>
+                            <option value="7">Pasaporte</option>
+                            <option value="A">Cédula Diplomática</option>
+                            <option value="0">Sin Documento</option>
+                        </select>
+                        <input type="text" id="prov-numero" class="form-control" placeholder="Número de documento"
+                               maxlength="15" autocomplete="off">
+                        <button type="button" id="prov-buscar" class="btn btn-outline-info">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                    </div>
+                    <div id="prov-nombre-wrap" class="input-group mt-2" style="display: none;">
+                        <input type="text" id="prov-nombre" class="form-control" maxlength="150"
+                               placeholder="Nombre o razón social del proveedor">
+                        <button type="button" id="prov-registrar" class="btn btn-info">
+                            <i class="fas fa-user-plus"></i> Registrar
+                        </button>
+                    </div>
+                    <small id="prov-mensaje" class="form-text"></small>
+                </div>
                 <div class="col-md-6 mb-2">
                     <label class="form-label fw-semibold">Proveedor</label>
                     <?= $this->Form->control('proveedor_id', [
@@ -92,11 +119,11 @@ $hoy = date('Y-m-d\TH:i');
 
     <!-- ══════════ ITEMS ══════════ -->
     <div class="card mb-3">
-        <div class="card-header"><strong><i class="fas fa-boxes"></i> Productos ingresados</strong></div>
+        <div class="card-header"><strong><i class="fas fa-boxes"></i> Ítems ingresados</strong></div>
         <div class="card-body">
             <div class="row g-2 align-items-end mb-3">
                 <div class="col-md-4 position-relative">
-                    <label class="form-label fw-semibold">Buscar producto</label>
+                    <label class="form-label fw-semibold">Buscar producto, procedimiento o examen</label>
                     <input type="text" id="buscar-producto" class="form-control" placeholder="Nombre o código..." autocomplete="off">
                     <input type="hidden" id="sel-producto-id">
                     <div id="resultados-producto" class="list-group position-absolute w-100 shadow-sm" style="z-index: 1000; max-height: 260px; overflow-y: auto;"></div>
@@ -120,7 +147,7 @@ $hoy = date('Y-m-d\TH:i');
                     <small id="aviso-vencimiento"></small>
                 </div>
                 <div class="col-12">
-                    <button type="button" id="btn-add-item" class="btn btn-success btn-sm"><i class="fas fa-plus"></i> Agregar producto</button>
+                    <button type="button" id="btn-add-item" class="btn btn-success btn-sm"><i class="fas fa-plus"></i> Agregar</button>
                 </div>
             </div>
 
@@ -128,7 +155,7 @@ $hoy = date('Y-m-d\TH:i');
                 <table class="table table-sm table-bordered align-middle" id="tabla-items">
                     <thead class="bg-light">
                         <tr>
-                            <th style="width: 24%;">Producto</th>
+                            <th style="width: 24%;">Ítem</th>
                             <th style="width: 9%;">Cantidad</th>
                             <th style="width: 12%;">P.Unit. c/IGV</th>
                             <th style="width: 13%;">Subtotal (neto)</th>
@@ -139,7 +166,7 @@ $hoy = date('Y-m-d\TH:i');
                         </tr>
                     </thead>
                     <tbody id="items-body">
-                        <tr id="fila-vacia"><td colspan="8" class="text-center text-muted py-3">Sin productos agregados.</td></tr>
+                        <tr id="fila-vacia"><td colspan="8" class="text-center text-muted py-3">Sin ítems agregados.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -201,6 +228,17 @@ $hoy = date('Y-m-d\TH:i');
     let itemIndex = 0;
     let timer = null;
 
+    // Productos suman stock; procedimientos y exámenes solo registran la compra.
+    const TIPOS = {
+        producto: { texto: 'Producto', clase: 'bg-primary' },
+        tratamiento: { texto: 'Procedimiento', clase: 'bg-success' },
+        examen: { texto: 'Examen', clase: 'bg-warning text-dark' }
+    };
+    function badgeTipo(tipo) {
+        const t = TIPOS[tipo] || TIPOS.producto;
+        return '<span class="badge ' + t.clase + ' me-1">' + t.texto + '</span>';
+    }
+
     function money(n) {
         return (Math.round(n * 100) / 100).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
@@ -224,7 +262,8 @@ $hoy = date('Y-m-d\TH:i');
                 const a = document.createElement('button');
                 a.type = 'button';
                 a.className = 'list-group-item list-group-item-action';
-                a.textContent = (p.codigo ? '[' + p.codigo + '] ' : '') + p.nombre + '  ·  stock: ' + p.stock;
+                a.innerHTML = badgeTipo(p.tipo) + escapeHtml((p.codigo ? '[' + p.codigo + '] ' : '') + p.nombre)
+                    + (p.tipo === 'producto' ? '  ·  stock: ' + p.stock : '');
                 a.addEventListener('click', () => elegir(p));
                 resultados.appendChild(a);
             });
@@ -238,8 +277,15 @@ $hoy = date('Y-m-d\TH:i');
         selId.value = p.id;
         inputBuscar.value = p.nombre;
         resultados.innerHTML = '';
-        selInfo.textContent = 'Unidad: ' + p.unidad + ' · Stock actual: ' + p.stock;
+        const esProducto = p.tipo === 'producto';
+        selInfo.textContent = esProducto
+            ? 'Unidad: ' + p.unidad + ' · Stock actual: ' + p.stock
+            : TIPOS[p.tipo].texto + ' · sin stock (solo se registra la compra)';
         marcarObligatoriedad(!!p.requiere_vencimiento);
+        // Lote y vencimiento solo aplican a productos
+        inLote.disabled = !esProducto;
+        inVenc.disabled = !esProducto;
+        if (!esProducto) { inLote.value = ''; inVenc.value = ''; avisoVenc.textContent = ''; }
         // precio_compra ya viene CON IGV, y el campo pide el precio con IGV.
         if (!inPrecio.value && p.precio_compra > 0) inPrecio.value = p.precio_compra;
         inCantidad.focus();
@@ -284,7 +330,7 @@ $hoy = date('Y-m-d\TH:i');
     });
 
     btnAdd.addEventListener('click', function () {
-        if (!selProducto) { alert('Selecciona un producto de la lista.'); return; }
+        if (!selProducto) { alert('Selecciona un producto, procedimiento o examen de la lista.'); return; }
         if (selProducto.requiere_vencimiento && (!inLote.value.trim() || !inVenc.value)) {
             alert('"' + selProducto.nombre + '" controla vencimiento: indique el número de lote y la fecha de vencimiento.');
             return;
@@ -299,7 +345,8 @@ $hoy = date('Y-m-d\TH:i');
         if (precioConIgv < 0) { alert('El precio no puede ser negativo.'); return; }
 
         agregarLinea({
-            producto_id: selProducto.id,
+            tipo_item: selProducto.tipo,
+            item_id: selProducto.id,
             nombre: selProducto.nombre,
             cantidad: cant,
             precio: precioConIgv,
@@ -311,6 +358,7 @@ $hoy = date('Y-m-d\TH:i');
         selProducto = null; selId.value = '';
         inputBuscar.value = ''; inCantidad.value = ''; inPrecio.value = '';
         inLote.value = ''; inVenc.value = ''; selInfo.textContent = ''; avisoVenc.textContent = '';
+        inLote.disabled = false; inVenc.disabled = false;
         marcarObligatoriedad(false);
         inputBuscar.focus();
     });
@@ -331,8 +379,9 @@ $hoy = date('Y-m-d\TH:i');
         tr.dataset.igv = igv;
         tr.dataset.tot = tot;
         tr.innerHTML = `
-            <td>${escapeHtml(l.nombre)}
-                <input type="hidden" name="items[${i}][producto_id]" value="${l.producto_id}">
+            <td>${badgeTipo(l.tipo_item)}${escapeHtml(l.nombre)}
+                <input type="hidden" name="items[${i}][tipo_item]" value="${escapeAttr(l.tipo_item)}">
+                <input type="hidden" name="items[${i}][item_id]" value="${l.item_id}">
             </td>
             <td>${money(cant)}<input type="hidden" name="items[${i}][cantidad]" value="${cant}"></td>
             <td>${money(precioConIgv)}<input type="hidden" name="items[${i}][precio_unitario]" value="${precioConIgv}"></td>
@@ -378,7 +427,7 @@ $hoy = date('Y-m-d\TH:i');
     form.addEventListener('submit', function (e) {
         if (!itemsBody.querySelector('tr[data-sub]')) {
             e.preventDefault();
-            alert('Agrega al menos un producto al ingreso.');
+            alert('Agrega al menos un producto, procedimiento o examen al ingreso.');
             return;
         }
         btnGuardar.disabled = true;
@@ -392,6 +441,108 @@ $hoy = date('Y-m-d\TH:i');
     window.addEventListener('pageshow', function () {
         btnGuardar.disabled = false;
         btnGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar Ingreso';
+    });
+})();
+
+// ══════════ PROVEEDOR POR DOCUMENTO ══════════
+(function () {
+    const urlBuscarProveedor = '<?= $this->Url->build(['action' => 'buscarProveedor']) ?>';
+    const tipoSel = document.getElementById('prov-tipo-doc');
+    const numeroInp = document.getElementById('prov-numero');
+    const btnBuscar = document.getElementById('prov-buscar');
+    const nombreWrap = document.getElementById('prov-nombre-wrap');
+    const nombreInp = document.getElementById('prov-nombre');
+    const btnRegistrar = document.getElementById('prov-registrar');
+    const mensaje = document.getElementById('prov-mensaje');
+    const proveedorSel = document.querySelector('select[name="proveedor_id"]');
+
+    function mostrarMensaje(texto, clase) {
+        mensaje.className = 'form-text ' + clase;
+        mensaje.textContent = texto;
+    }
+
+    function seleccionarProveedor(p) {
+        let opcion = Array.from(proveedorSel.options).find(o => o.value === String(p.id));
+        if (!opcion) {
+            opcion = new Option(p.etiqueta, p.id);
+            proveedorSel.add(opcion);
+        }
+        proveedorSel.value = String(p.id);
+        proveedorSel.dispatchEvent(new Event('change'));
+    }
+
+    function buscar(nombre) {
+        const numero = numeroInp.value.trim();
+        if (!numero) {
+            mostrarMensaje('Ingrese el número de documento.', 'text-danger');
+            numeroInp.focus();
+            return;
+        }
+
+        const params = new URLSearchParams({ tipo: tipoSel.value, numero: numero });
+        if (nombre) params.set('nombre', nombre);
+
+        btnBuscar.disabled = true;
+        btnRegistrar.disabled = true;
+        mostrarMensaje('Buscando...', 'text-muted');
+
+        fetch(urlBuscarProveedor + '?' + params.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json())
+            .then(res => {
+                if (res.ok) {
+                    seleccionarProveedor(res);
+                    nombreWrap.style.display = 'none';
+                    nombreInp.value = '';
+                    let texto = (res.nuevo ? 'Proveedor registrado: ' : 'Proveedor encontrado: ') + res.nombre;
+                    if (res.activo === false) texto += ' (está inactivo en Proveedores)';
+                    mostrarMensaje(texto, res.activo === false ? 'text-warning' : 'text-success');
+                } else {
+                    nombreWrap.style.display = res.requiere_nombre ? 'flex' : 'none';
+                    if (res.requiere_nombre) nombreInp.focus();
+                    mostrarMensaje(res.message || 'No se encontró el proveedor.', 'text-danger');
+                }
+            })
+            .catch(() => mostrarMensaje('Error de conexión al buscar el proveedor.', 'text-danger'))
+            .finally(() => {
+                btnBuscar.disabled = false;
+                btnRegistrar.disabled = false;
+            });
+    }
+
+    // "Sin documento": se elige directamente de la lista de proveedores
+    tipoSel.addEventListener('change', function () {
+        const sinDocumento = tipoSel.value === '0';
+        numeroInp.disabled = sinDocumento;
+        btnBuscar.disabled = sinDocumento;
+        nombreWrap.style.display = 'none';
+        numeroInp.value = '';
+        mostrarMensaje(sinDocumento ? 'Seleccione el proveedor de la lista.' : '', 'text-muted');
+        if (!sinDocumento) numeroInp.focus();
+    });
+
+    btnBuscar.addEventListener('click', () => buscar());
+    numeroInp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // no enviar el formulario de ingreso
+            buscar();
+        }
+    });
+    numeroInp.addEventListener('input', () => { nombreWrap.style.display = 'none'; });
+
+    btnRegistrar.addEventListener('click', function () {
+        const nombre = nombreInp.value.trim();
+        if (!nombre) {
+            mostrarMensaje('Ingrese el nombre del proveedor.', 'text-danger');
+            nombreInp.focus();
+            return;
+        }
+        buscar(nombre);
+    });
+    nombreInp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            btnRegistrar.click();
+        }
     });
 })();
 </script>
