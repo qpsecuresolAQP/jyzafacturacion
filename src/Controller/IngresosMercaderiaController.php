@@ -93,6 +93,8 @@ class IngresosMercaderiaController extends AppController
                 }
                 $itemId = (int) ($row['item_id'] ?? 0);
                 $esProducto = $tipoItem === 'producto';
+                // Productos y exámenes (reactivos/insumos) llevan lote y vencimiento.
+                $llevaLote = $tipoItem !== 'tratamiento';
                 $cantidad = (float) ($row['cantidad'] ?? 0);
                 // El precio que ingresa el usuario es el UNITARIO CON IGV
                 // (tal como figura en la factura del proveedor).
@@ -126,9 +128,9 @@ class IngresosMercaderiaController extends AppController
                     'subtotal' => $lineaBase,
                     'igv' => $lineaIgv,
                     'total' => $lineaTotal,
-                    // Lote y vencimiento solo aplican a productos.
-                    'lote' => $esProducto ? (trim((string) ($row['lote'] ?? '')) ?: null) : null,
-                    'fecha_vencimiento' => $esProducto && !empty($row['fecha_vencimiento']) ? $row['fecha_vencimiento'] : null,
+                    // Lote y vencimiento aplican a productos y exámenes, no a procedimientos.
+                    'lote' => $llevaLote ? (trim((string) ($row['lote'] ?? '')) ?: null) : null,
+                    'fecha_vencimiento' => $llevaLote && !empty($row['fecha_vencimiento']) ? $row['fecha_vencimiento'] : null,
                 ];
             }
 
@@ -195,6 +197,8 @@ class IngresosMercaderiaController extends AppController
                                 'subtotal' => $linea['subtotal'],
                                 'igv' => $linea['igv'],
                                 'total' => $linea['total'],
+                                'lote' => $linea['lote'],
+                                'fecha_vencimiento' => $linea['fecha_vencimiento'],
                             ]);
                             $this->IngresosMercaderia->IngresosMercaderiaDetalle->saveOrFail($detalle);
                             continue;

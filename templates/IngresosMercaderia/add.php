@@ -282,10 +282,11 @@ $hoy = date('Y-m-d\TH:i');
             ? 'Unidad: ' + p.unidad + ' · Stock actual: ' + p.stock
             : TIPOS[p.tipo].texto + ' · sin stock (solo se registra la compra)';
         marcarObligatoriedad(!!p.requiere_vencimiento);
-        // Lote y vencimiento solo aplican a productos
-        inLote.disabled = !esProducto;
-        inVenc.disabled = !esProducto;
-        if (!esProducto) { inLote.value = ''; inVenc.value = ''; avisoVenc.textContent = ''; }
+        // Lote y vencimiento aplican a productos y exámenes, no a procedimientos
+        const llevaLote = p.tipo !== 'tratamiento';
+        inLote.disabled = !llevaLote;
+        inVenc.disabled = !llevaLote;
+        if (!llevaLote) { inLote.value = ''; inVenc.value = ''; avisoVenc.textContent = ''; }
         // precio_compra ya viene CON IGV, y el campo pide el precio con IGV.
         if (!inPrecio.value && p.precio_compra > 0) inPrecio.value = p.precio_compra;
         inCantidad.focus();
