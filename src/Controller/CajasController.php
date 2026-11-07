@@ -741,6 +741,73 @@ public function agregarIngreso($id)
     ));
 }
 
+    public function editarIngreso($id)
+    {
+        return $this->editarMovimientoExterno('CajaIngresos', (int)$id);
+    }
+
+    public function editarEgreso($id)
+    {
+        return $this->editarMovimientoExterno('CajaEgresos', (int)$id);
+    }
+
+    /**
+     * Corrige monto, método o descripción de un ingreso/egreso externo.
+     * Con la caja abierta o pausada lo puede hacer cualquier usuario de caja;
+     * cerrada, solo el administrador. Los reembolsos por anulación no se editan
+     * porque están ligados al comprobante anulado.
+     */
+    private function editarMovimientoExterno(string $tabla, int $id)
+    {
+        $Tabla = $this->fetchTable($tabla);
+        $registro = $Tabla->get($id);
+        $caja = $this->Cajas->get($registro->caja_id);
+        $esIngreso = $tabla === 'CajaIngresos';
+
+        if (!$esIngreso && ($registro->tipo ?? 'GASTO') !== 'GASTO') {
+            $this->Flash->error('Los reembolsos por anulación no se pueden editar.');
+
+            return $this->redirect(['action' => 'view', $caja->id]);
+        }
+
+        if (!in_array($caja->estado, ['ABIERTA', 'PAUSADA'], true) && !$this->esAdministrador()) {
+            $this->Flash->error('La caja está cerrada: solo el administrador puede corregir sus movimientos.');
+
+            return $this->redirect(['action' => 'view', $caja->id]);
+        }
+
+        if ($this->request->is(['post', 'put', 'patch'])) {
+            $data = $this->request->getData();
+            $monto = round((float)($data['monto'] ?? 0), 2);
+            $descripcion = trim((string)($data['descripcion'] ?? ''));
+            $metodo = strtoupper(trim((string)($data['metodo_pago'] ?? 'EFECTIVO')));
+
+            if ($monto <= 0) {
+                $this->Flash->error('El monto debe ser mayor a 0.');
+            } elseif ($descripcion === '') {
+                $this->Flash->error('La descripción es obligatoria.');
+            } elseif (!in_array($metodo, ['EFECTIVO', 'YAPE', 'TARJETA', 'TRANSFERENCIA', 'PLIN', 'OTROS'], true)) {
+                $this->Flash->error('Método de pago no válido.');
+            } else {
+                $registro = $Tabla->patchEntity($registro, [
+                    'monto' => $monto,
+                    'descripcion' => $descripcion,
+                    'metodo_pago' => $metodo,
+                ]);
+
+                if ($Tabla->save($registro)) {
+                    $this->Flash->success($esIngreso ? 'Ingreso actualizado.' : 'Egreso actualizado.');
+
+                    return $this->redirect(['action' => 'view', $caja->id]);
+                }
+                $this->Flash->error('No se pudo actualizar.');
+            }
+        }
+
+        $this->set(compact('caja', 'registro', 'esIngreso'));
+        $this->viewBuilder()->setTemplate('editar_externo');
+    }
+
     public function beforeFilter(\Cake\Event\EventInterface $event)
     {
         parent::beforeFilter($event);

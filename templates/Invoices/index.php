@@ -99,42 +99,166 @@
         </div>
     </div>
 
+    <?php
+    $q = fn($k) => $this->request->getQuery($k);
+    // La fecha se conserva al cambiar de tipo o buscar.
+    $paramsFecha = ['fecha' => $fecha];
+    $conFecha = fn(array $extra = []) => $this->Url->build(['action' => 'index', '?' => array_filter($extra + $paramsFecha)]);
+    $ayer = date('Y-m-d', strtotime($hoy . ' -1 day'));
+    $paramsSinFecha = array_filter([
+        'tipo' => $q('tipo'),
+        'sin_doctor' => $q('sin_doctor'),
+        'cliente' => $q('cliente'),
+        'documento' => $q('documento'),
+    ]);
+    $irA = fn($f) => $this->Url->build(['action' => 'index', '?' => $paramsSinFecha + ['fecha' => $f]]);
+    ?>
+
+    <!-- FILTRO POR FECHA -->
+    <?php
+    $diaAnterior = date('Y-m-d', strtotime($fecha . ' -1 day'));
+    $diaSiguiente = date('Y-m-d', strtotime($fecha . ' +1 day'));
+    $mesesEs = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    $diasEs = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    $fechaLarga = function (string $f) use ($mesesEs, $diasEs): string {
+        $t = strtotime($f);
+        return $diasEs[(int)date('w', $t)] . ' ' . date('j', $t) . ' de ' . $mesesEs[(int)date('n', $t)] . ' de ' . date('Y', $t);
+    };
+    ?>
+    <style>
+        .filtro-fechas .rango-titulo { font-size: 1.05rem; font-weight: 600; line-height: 1.2; }
+        .filtro-fechas .rango-sub { font-size: .8rem; color: #6c757d; }
+        .filtro-fechas .nav-dia { width: 34px; padding-left: 0; padding-right: 0; }
+        .filtro-fechas .fecha-actual { min-width: 190px; }
+        .filtro-fechas .form-fecha input[type=date] { width: 155px; }
+        .filtro-fechas .kpi { border-left: 3px solid #dee2e6; padding: 2px 12px; min-width: 120px; }
+        .filtro-fechas .kpi .kpi-label { font-size: .72rem; color: #6c757d; text-transform: uppercase; letter-spacing: .02em; }
+        .filtro-fechas .kpi .kpi-valor { font-size: 1.15rem; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+        .filtro-fechas .kpi-total { border-left-color: #28a745; }
+        .filtro-fechas .kpi-anulados { border-left-color: #dc3545; }
+        .filtro-fechas .kpi-cantidad { border-left-color: #17a2b8; }
+        @media (max-width: 767.98px) {
+            .filtro-fechas .kpis { margin-top: .75rem; }
+            .filtro-fechas .form-fecha input[type=date] { width: 100%; }
+        }
+    </style>
+    <div class="card filtro-fechas mb-3 shadow-sm">
+        <div class="card-body py-3">
+            <?php if ($filtraPorFecha): ?>
+                <div class="d-flex flex-wrap align-items-center justify-content-between">
+                    <div class="d-flex flex-wrap align-items-center">
+                        <!-- Día mostrado + navegación por día -->
+                        <div class="d-flex align-items-center mb-2 mr-3">
+                            <a href="<?= $irA($diaAnterior) ?>" class="btn btn-outline-secondary btn-sm nav-dia" title="Día anterior">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                            <div class="text-center px-3 fecha-actual">
+                                <div class="rango-titulo">
+                                    <?= $fecha === $hoy ? 'Hoy' : ($fecha === $ayer ? 'Ayer' : h(date('d/m/Y', strtotime($fecha)))) ?>
+                                </div>
+                                <div class="rango-sub"><?= h($fechaLarga($fecha)) ?></div>
+                            </div>
+                            <?php if ($fecha < $hoy): ?>
+                                <a href="<?= $irA($diaSiguiente) ?>" class="btn btn-outline-secondary btn-sm nav-dia" title="Día siguiente">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-outline-secondary btn-sm nav-dia" disabled><i class="fas fa-chevron-right"></i></button>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Elegir otro día (se aplica al cambiar la fecha) -->
+                        <?= $this->Form->create(null, ['type' => 'get', 'class' => 'form-fecha d-flex align-items-center mb-2']) ?>
+                            <input type="date" name="fecha" value="<?= h($fecha) ?>" max="<?= h($hoy) ?>"
+                                   class="form-control form-control-sm mr-2" title="Elegir fecha"
+                                   onchange="if (this.value) this.form.submit()">
+                            <?php foreach ($paramsSinFecha as $k => $v): ?>
+                                <?= $this->Form->hidden($k, ['value' => $v]) ?>
+                            <?php endforeach; ?>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Accesos rápidos">
+                                <a href="<?= $irA($hoy) ?>" class="btn <?= $fecha === $hoy ? 'btn-info' : 'btn-outline-info' ?>">Hoy</a>
+                                <a href="<?= $irA($ayer) ?>" class="btn <?= $fecha === $ayer ? 'btn-info' : 'btn-outline-info' ?>">Ayer</a>
+                            </div>
+                        <?= $this->Form->end() ?>
+                    </div>
+
+                    <!-- Resumen -->
+                    <div class="d-flex flex-wrap kpis mb-2">
+                        <div class="kpi kpi-cantidad">
+                            <div class="kpi-label">Comprobantes</div>
+                            <div class="kpi-valor"><?= (int)($resumen['cantidad'] ?? 0) ?></div>
+                        </div>
+                        <div class="kpi kpi-total">
+                            <div class="kpi-label">Total vendido</div>
+                            <div class="kpi-valor text-success">S/ <?= number_format((float)($resumen['total'] ?? 0), 2) ?></div>
+                        </div>
+                        <div class="kpi kpi-anulados" title="Los anulados no suman al total">
+                            <div class="kpi-label">Anulados</div>
+                            <div class="kpi-valor <?= (int)($resumenAnulados['cantidad'] ?? 0) > 0 ? 'text-danger' : 'text-muted' ?>">
+                                <?= (int)($resumenAnulados['cantidad'] ?? 0) ?>
+                                <small class="font-weight-normal">· S/ <?= number_format((float)($resumenAnulados['total'] ?? 0), 2) ?></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                    <span><i class="fas fa-info-circle text-info mr-1"></i> Crédito pendiente muestra <strong>todas las fechas</strong>.</span>
+                    <div class="d-flex kpis">
+                        <div class="kpi kpi-cantidad">
+                            <div class="kpi-label">Comprobantes</div>
+                            <div class="kpi-valor"><?= (int)($resumen['cantidad'] ?? 0) ?></div>
+                        </div>
+                        <div class="kpi kpi-total">
+                            <div class="kpi-label">Total</div>
+                            <div class="kpi-valor">S/ <?= number_format((float)($resumen['total'] ?? 0), 2) ?></div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <style>
+        .filtros-tipo > * { margin: 0 .4rem .4rem 0; }
+        .buscador-cliente > * { margin: 0 .5rem .5rem 0; }
+    </style>
     <!-- FILTRO POR TIPO -->
-    <div class="mb-3 d-flex gap-2 flex-wrap">
-        <a href="<?= $this->Url->build(['action' => 'index']) ?>"
-        class="btn btn-sm <?= (!$this->request->getQuery('tipo') && !$this->request->getQuery('credito')) ? 'btn-dark' : 'btn-outline-dark' ?>">
+    <div class="mb-3 d-flex flex-wrap filtros-tipo">
+        <a href="<?= $conFecha() ?>"
+        class="btn btn-sm <?= (!$q('tipo') && !$q('credito') && !$q('sin_doctor')) ? 'btn-dark' : 'btn-outline-dark' ?>">
             Todos
         </a>
-        <a href="<?= $this->Url->build(['action' => 'index', '?' => ['tipo' => 'RI']]) ?>"
-        class="btn btn-sm <?= $this->request->getQuery('tipo') === 'RI' ? 'btn-dark' : 'btn-outline-dark' ?>">
+        <a href="<?= $conFecha(['tipo' => 'RI']) ?>"
+        class="btn btn-sm <?= $q('tipo') === 'RI' ? 'btn-dark' : 'btn-outline-dark' ?>">
             Notas de Venta
         </a>
-        <a href="<?= $this->Url->build(['action' => 'index', '?' => ['tipo' => '03']]) ?>"
-        class="btn btn-sm <?= $this->request->getQuery('tipo') === '03' ? 'btn-warning' : 'btn-outline-ambar' ?>">
+        <a href="<?= $conFecha(['tipo' => '03']) ?>"
+        class="btn btn-sm <?= $q('tipo') === '03' ? 'btn-warning' : 'btn-outline-ambar' ?>">
             Boletas
         </a>
-        <a href="<?= $this->Url->build(['action' => 'index', '?' => ['tipo' => '01']]) ?>"
-        class="btn btn-sm <?= $this->request->getQuery('tipo') === '01' ? 'btn-primary' : 'btn-outline-primary' ?>">
+        <a href="<?= $conFecha(['tipo' => '01']) ?>"
+        class="btn btn-sm <?= $q('tipo') === '01' ? 'btn-primary' : 'btn-outline-primary' ?>">
             Facturas
         </a>
         <a href="<?= $this->Url->build(['action' => 'index', '?' => ['credito' => '1']]) ?>"
-        class="btn btn-sm <?= $this->request->getQuery('credito') === '1' ? 'btn-danger' : 'btn-outline-danger' ?>">
+        class="btn btn-sm <?= $q('credito') === '1' ? 'btn-danger' : 'btn-outline-danger' ?>">
             <i class="fas fa-clock"></i> Crédito Pendiente
         </a>
-        <a href="<?= $this->Url->build(['action' => 'index', '?' => ['sin_doctor' => '1']]) ?>"
-        class="btn btn-sm <?= $this->request->getQuery('sin_doctor') === '1' ? 'btn-secondary' : 'btn-outline-secondary' ?>">
+        <a href="<?= $conFecha(['sin_doctor' => '1']) ?>"
+        class="btn btn-sm <?= $q('sin_doctor') === '1' ? 'btn-secondary' : 'btn-outline-secondary' ?>">
             <i class="fas fa-user-md"></i> Sin Doctor Asignado
         </a>
     </div>
 
     <!-- BUSCADOR POR CLIENTE -->
     <div class="mb-3">
-        <?= $this->Form->create(null, ['type' => 'get', 'class' => 'd-flex gap-2 flex-wrap']) ?>
+        <?= $this->Form->create(null, ['type' => 'get', 'class' => 'd-flex flex-wrap buscador-cliente']) ?>
             <div style="max-width: 320px; flex: 1;">
                 <?= $this->Form->control('cliente', [
                     'type' => 'text',
                     'label' => false,
-                    'value' => $this->request->getQuery('cliente'),
+                    'value' => $q('cliente'),
                     'placeholder' => 'Buscar por nombre de cliente...',
                     'class' => 'form-control',
                     'templates' => ['inputContainer' => '{{content}}'],
@@ -145,34 +269,31 @@
                 <?= $this->Form->control('documento', [
                     'type' => 'text',
                     'label' => false,
-                    'value' => $this->request->getQuery('documento'),
+                    'value' => $q('documento'),
                     'placeholder' => 'Buscar por DNI/RUC...',
                     'class' => 'form-control',
                     'templates' => ['inputContainer' => '{{content}}'],
                 ]) ?>
             </div>
 
-            <?php if ($this->request->getQuery('tipo')): ?>
-                <?= $this->Form->hidden('tipo', ['value' => $this->request->getQuery('tipo')]) ?>
-            <?php endif; ?>
-            <?php if ($this->request->getQuery('credito')): ?>
-                <?= $this->Form->hidden('credito', ['value' => $this->request->getQuery('credito')]) ?>
-            <?php endif; ?>
-            <?php if ($this->request->getQuery('sin_doctor')): ?>
-                <?= $this->Form->hidden('sin_doctor', ['value' => $this->request->getQuery('sin_doctor')]) ?>
+            <?php foreach (array_filter(['tipo' => $q('tipo'), 'credito' => $q('credito'), 'sin_doctor' => $q('sin_doctor')]) as $k => $v): ?>
+                <?= $this->Form->hidden($k, ['value' => $v]) ?>
+            <?php endforeach; ?>
+            <?php if ($filtraPorFecha): ?>
+                <?= $this->Form->hidden('fecha', ['value' => $fecha]) ?>
             <?php endif; ?>
 
             <button type="submit" class="btn btn-primary">
                 <i class="fas fa-search"></i> Buscar
             </button>
 
-            <?php if ($this->request->getQuery('cliente') || $this->request->getQuery('documento')): ?>
+            <?php if ($q('cliente') || $q('documento')): ?>
                 <?php
                 $paramsSinCliente = array_filter([
-                    'tipo' => $this->request->getQuery('tipo'),
-                    'credito' => $this->request->getQuery('credito'),
-                    'sin_doctor' => $this->request->getQuery('sin_doctor'),
-                ]);
+                    'tipo' => $q('tipo'),
+                    'credito' => $q('credito'),
+                    'sin_doctor' => $q('sin_doctor'),
+                ]) + ($filtraPorFecha ? $paramsFecha : []);
                 ?>
                 <a href="<?= $this->Url->build(['action' => 'index', '?' => $paramsSinCliente]) ?>"
                 class="btn btn-outline-secondary">
@@ -180,6 +301,9 @@
                 </a>
             <?php endif; ?>
         <?= $this->Form->end() ?>
+        <?php if ($filtraPorFecha && ($q('cliente') || $q('documento'))): ?>
+            <small class="text-muted">La búsqueda se aplica solo al día seleccionado. Si no encuentra el comprobante, cambie de fecha o use los reportes.</small>
+        <?php endif; ?>
     </div>
 
     <!-- TABLA DE COMPROBANTES -->
@@ -455,15 +579,7 @@
     })();
     </script>
 
-    <!-- PAGINADOR -->
-    <div class="paginator mt-3">
-        <ul class="pagination">
-            <?= $this->Paginator->first('<< ' . __('Primero')) ?>
-            <?= $this->Paginator->prev('< ' . __('Anterior')) ?>
-            <?= $this->Paginator->numbers() ?>
-            <?= $this->Paginator->next(__('Siguiente') . ' >') ?>
-            <?= $this->Paginator->last(__('Último') . ' >>') ?>
-        </ul>
-        <p><?= $this->Paginator->counter(__('Página {{page}} de {{pages}}, mostrando {{current}} registro(s) de un total de {{count}}')) ?></p>
-    </div>
+    <p class="text-muted small mt-2 mb-0">
+        Mostrando <?= count($invoices) ?> registro(s)<?= $filtraPorFecha ? ' del día seleccionado' : '' ?>.
+    </p>
 </div>

@@ -15,6 +15,8 @@ class CajaIngresosTable extends Table
 
         $this->setPrimaryKey('id');
 
+        $this->addBehavior('Timestamp');
+
         $this->belongsTo('Cajas', [
             'foreignKey' => 'caja_id',
         ]);

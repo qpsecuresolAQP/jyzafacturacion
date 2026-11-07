@@ -85,7 +85,42 @@ if ($this->request->getQuery('sin_doctor') === '1') {
     $query->where(['Invoices.doctor_id IS' => null]);
 }
 
-        $invoices = $this->paginate($query);
+// Un solo día, por defecto hoy (las consultas por rango van en reportes).
+// "Crédito pendiente" no se limita por fecha: las deudas vienen de días anteriores.
+$hoy = date('Y-m-d');
+$fecha = (string) $this->request->getQuery('fecha', '');
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $fecha > $hoy) {
+    $fecha = $hoy;
+}
+$filtraPorFecha = $this->request->getQuery('credito') !== '1';
+if ($filtraPorFecha) {
+    $query->where([
+        'Invoices.created >=' => $fecha . ' 00:00:00',
+        'Invoices.created <=' => $fecha . ' 23:59:59',
+    ]);
+}
+
+        // Resumen del rango filtrado (los anulados no suman, igual que en caja).
+        $resumen = (clone $query)
+            ->select([
+                'cantidad' => $query->func()->count('*'),
+                'total' => $query->func()->sum('Invoices.total'),
+            ])
+            ->where(['Invoices.estado !=' => 'ANULADO'])
+            ->disableHydration()
+            ->contain([], true)
+            ->orderBy([], true)
+            ->first();
+        $resumenAnulados = (clone $query)
+            ->select(['cantidad' => $query->func()->count('*'), 'total' => $query->func()->sum('Invoices.total')])
+            ->where(['Invoices.estado' => 'ANULADO'])
+            ->disableHydration()
+            ->contain([], true)
+            ->orderBy([], true)
+            ->first();
+
+        // Sin paginación: se listan todos los comprobantes del rango elegido.
+        $invoices = $query->all();
 
         $doctores = $this->fetchTable('Doctores')->find('list', [
             'keyField' => 'id',
@@ -95,7 +130,7 @@ if ($this->request->getQuery('sin_doctor') === '1') {
             'order' => ['nombre' => 'ASC', 'apellido' => 'ASC'],
         ])->toArray();
 
-        $this->set(compact('invoices', 'cajaAbierta', 'doctores'));
+        $this->set(compact('invoices', 'cajaAbierta', 'doctores', 'fecha', 'hoy', 'filtraPorFecha', 'resumen', 'resumenAnulados'));
     }
 
     public function asignarDoctor($id = null)

@@ -1,3 +1,7 @@
+<?php
+// Ingresos/egresos externos: editables con la caja abierta o pausada; cerrada, solo el administrador.
+$puedeEditarExternos = in_array($caja->estado, ['ABIERTA', 'PAUSADA'], true) || $this->Permisos->tieneRol([1]);
+?>
 <div class="container-fluid py-4">
 
     <!-- HEADER -->
@@ -312,6 +316,7 @@
                             <th>Descripción</th>
                             <th>Método</th>    
                             <th class="text-end">Monto</th>
+                            <th class="text-center">Acciones</th>
 
                         </tr>
 
@@ -325,17 +330,22 @@
 
                             <td>
 
-                                <?= h(
-                                    $i->created?->format(
-                                        'Y-m-d H:i'
-                                    )
-                                ) ?>
+                                <?php if ($i->created): ?>
+                                    <?= h($i->created->format('Y-m-d H:i')) ?>
+                                <?php else: ?>
+                                    <?php // Registros antiguos, guardados sin fecha: se muestra el día de la caja. ?>
+                                    <?= h($caja->created?->format('Y-m-d')) ?>
+                                    <br><small class="text-muted fst-italic">hora no registrada</small>
+                                <?php endif; ?>
 
                             </td>
 
                             <td>
 
                                 <?= h($i->descripcion) ?>
+                                <?php if ($i->modified && (!$i->created || $i->modified->format('Y-m-d H:i:s') !== $i->created->format('Y-m-d H:i:s'))): ?>
+                                    <br><small class="text-muted fst-italic">Editado <?= h($i->modified->format('Y-m-d H:i')) ?></small>
+                                <?php endif; ?>
 
                             </td>
                             
@@ -365,6 +375,18 @@
 
                             </td>
 
+                            <td class="text-center text-nowrap">
+                                <?php if ($puedeEditarExternos): ?>
+                                    <?= $this->Html->link(
+                                        '<i class="fas fa-edit"></i>',
+                                        ['action' => 'editarIngreso', $i->id],
+                                        ['escape' => false, 'title' => 'Editar', 'class' => 'btn btn-warning btn-sm']
+                                    ) ?>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+
                         </tr>
 
                     <?php endforeach; ?>
@@ -373,7 +395,7 @@
 
                         <tr>
 
-                            <td colspan="3"
+                            <td colspan="5"
                                 class="text-center text-muted">
 
                                 No hay ingresos externos
@@ -427,6 +449,7 @@
                         <th>Método</th>
 
                         <th class="text-end">Monto</th>
+                        <th class="text-center">Acciones</th>
 
                     </tr>
 
@@ -451,6 +474,9 @@
                         <td>
 
                             <?= h($e->descripcion) ?>
+                                <?php if ($e->modified && $e->created && $e->modified->format('Y-m-d H:i:s') !== $e->created->format('Y-m-d H:i:s')): ?>
+                                    <br><small class="text-muted fst-italic">Editado <?= h($e->modified->format('Y-m-d H:i')) ?></small>
+                                <?php endif; ?>
 
                         </td>
                         <td>
@@ -479,6 +505,18 @@
 
                         </td>
 
+                            <td class="text-center text-nowrap">
+                                <?php if ($puedeEditarExternos): ?>
+                                    <?= $this->Html->link(
+                                        '<i class="fas fa-edit"></i>',
+                                        ['action' => 'editarEgreso', $e->id],
+                                        ['escape' => false, 'title' => 'Editar', 'class' => 'btn btn-warning btn-sm']
+                                    ) ?>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+
                     </tr>
 
                 <?php endforeach; ?>
@@ -487,7 +525,7 @@
 
                     <tr>
 
-                        <td colspan="4"
+                        <td colspan="5"
                             class="text-center text-muted">
 
                             No hay egresos externos

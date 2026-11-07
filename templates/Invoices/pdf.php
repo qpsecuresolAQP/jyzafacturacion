@@ -2,6 +2,17 @@
 $esFactura = $invoice->tipo_doc === '01';
 $esInterno = $invoice->estado === 'RECIBO_INTERNO';
 
+if (!function_exists('descuentoLinea')) {
+    function descuentoLinea($item): float
+    {
+        if ((float) ($item->descuento ?? 0) <= 0) {
+            return 0.0;
+        }
+
+        return max(0.0, round((float) $item->cantidad * (float) $item->precio_unitario - (float) $item->total, 2));
+    }
+}
+
 /* ── MONTOS ── */
 $montoGravado = 0.0;
 $montoExonerado = 0.0;
@@ -17,15 +28,10 @@ foreach ($invoice->invoice_items as $item) {
         $montoGravado += $base;
     }
 
-    // Descuento por ítem (porcentaje o monto fijo)
-    $desc = (float) ($item->descuento ?? 0);
-    if ($desc > 0) {
-        if (($item->descuento_tipo ?? 'porcentaje') === 'porcentaje') {
-            $totalDescuentos += ((float) $item->cantidad * (float) $item->precio_unitario) * ($desc / 100);
-        } else {
-            $totalDescuentos += $desc;
-        }
-    }
+    // Descuento real de la línea: precio de lista x cantidad menos lo cobrado.
+    // (El descuento por monto es por unidad; en ítems de presupuesto el precio
+    // ya viene neto, así que aquí da 0 y no se muestra un descuento doble.)
+    $totalDescuentos += descuentoLinea($item);
 }
 
 $montoGravado = round($montoGravado, 2);
@@ -44,13 +50,16 @@ $numeroDocumento = ($invoice->serie && $invoice->correlativo)
 $etiquetaDoc = $esFactura ? 'R.U.C.' : 'D.N.I.';
 
 /* ── FORMA DE PAGO (desde caja_movimientos) ── */
-// Monto pagado por método (lo recibido menos el vuelto), sumando si un método se repite.
-$paymentMethods = [];
+// Cada pago por separado (lo recibido menos el vuelto), en el orden en que se
+// registró: si pagaron dos veces por Yape o tarjeta, salen las dos líneas.
+$pagos = [];
 if (!empty($invoice->caja_movimientos)) {
-    foreach ($invoice->caja_movimientos as $mov) {
+    $movimientos = $invoice->caja_movimientos;
+    usort($movimientos, fn($a, $b) => (int) $a->id <=> (int) $b->id);
+    foreach ($movimientos as $mov) {
         $montoPagado = (float) $mov->monto_recibido - (float) ($mov->vuelto ?? 0);
         if (!empty($mov->metodo_pago) && $montoPagado > 0) {
-            $paymentMethods[$mov->metodo_pago] = ($paymentMethods[$mov->metodo_pago] ?? 0) + $montoPagado;
+            $pagos[] = ['metodo' => $mov->metodo_pago, 'monto' => $montoPagado];
         }
     }
 }
@@ -321,6 +330,16 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
                         <?php if ((string) ($item->tip_afe_igv ?? '10') === '20'): ?>
                             <span style="font-size: 6px;">(EXON.)</span>
                         <?php endif; ?>
+                        <?php $descItem = descuentoLinea($item); ?>
+                        <?php if ($descItem > 0): ?>
+                            <div style="font-size: 6.5px;">
+                                Dscto.
+                                <?= ($item->descuento_tipo ?? 'porcentaje') === 'porcentaje'
+                                    ? rtrim(rtrim(number_format((float) $item->descuento, 2), '0'), '.') . '%'
+                                    : 'S/ ' . number_format((float) $item->descuento, 2) . ((float) $item->cantidad != 1 ? ' c/u' : '') ?>
+                                : -S/ <?= number_format($descItem, 2) ?>
+                            </div>
+                        <?php endif; ?>
                     </td>
                     <td class="text-right"><?= number_format((float) $item->precio_unitario, 2) ?></td>
                     <td class="text-right"><?= number_format((float) $item->total, 2) ?></td>
@@ -339,8 +358,8 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
                 <table class="totals-table">
                     <?php if ($totalDescuentos > 0): ?>
                         <tr>
-                            <td class="text-left">Total Desc. Item</td>
-                            <td class="text-right">: S/ <?= number_format($totalDescuentos, 2) ?></td>
+                            <td class="text-left">Descuento aplicado</td>
+                            <td class="text-right">: -S/ <?= number_format($totalDescuentos, 2) ?></td>
                         </tr>
                     <?php endif; ?>
 
@@ -378,12 +397,12 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
     <!-- FORMA DE PAGO -->
     <div class="forma-pago">
         <div>Forma de Pago : Contado</div>
-        <?php if (!empty($paymentMethods)): ?>
+        <?php if (!empty($pagos)): ?>
             <table class="totals-table">
-                <?php foreach ($paymentMethods as $metodo => $monto): ?>
+                <?php foreach ($pagos as $pago): ?>
                     <tr>
-                        <td class="text-left"><?= h($metodo) ?></td>
-                        <td class="text-right">: S/ <?= number_format($monto, 2) ?></td>
+                        <td class="text-left"><?= h($pago['metodo']) ?></td>
+                        <td class="text-right">: S/ <?= number_format($pago['monto'], 2) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </table>
