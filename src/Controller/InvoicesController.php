@@ -23,6 +23,9 @@ use Greenter\Model\Sale\Cuota;
 use Greenter\Model\Sale\FormaPagos\FormaPagoCredito;
 class InvoicesController extends AppController
 {
+    /** Días calendario desde la emisión en que SUNAT permite anular una boleta (Resumen Diario, estado 3). */
+    private const DIAS_ANULACION_BOLETA = 7;
+
     public function index()
     {
         $Cajas = $this->fetchTable('Cajas');
@@ -1832,6 +1835,8 @@ public function comprobanteCuota($cuotaId)
      public function enviarResumenDiario()
 {
     $this->request->allowMethod(['post', 'get']);
+    // Envío + consulta del ticket: que PHP no corte la petición si SUNAT tarda.
+    set_time_limit(300);
 
     $companyId = (int)$this->request->getQuery('company_id', 0);
     $fechaStr  = (string)$this->request->getQuery('fecha', date('Y-m-d'));
@@ -1909,18 +1914,12 @@ public function comprobanteCuota($cuotaId)
         return $this->redirect($this->referer());
     }
 
-    // Correlativo contando TODOS los resúmenes del día (exitosos y fallidos)
-    // para evitar duplicados cuando se reintenta un envío
-    $last = $DailySummaries->find()
-        ->where([
-            'company_id' => $companyId,
-            'fecha'      => $fecha->format('Y-m-d'),
-        ])
-        ->order(['correlativo' => 'DESC'])
-        ->first();
-
-    $corr   = $last ? ((int)$last->correlativo + 1) : 1;
-    $nombre = $company->ruc . '-RC-' . $fecha->format('Ymd') . '-' . $corr;
+    // Correlativo contando TODOS los resúmenes ENVIADOS hoy (exitosos y fallidos,
+    // normales y de anulación): SUNAT nombra el archivo con la fecha de envío,
+    // no con la de emisión de las boletas.
+    $fechaEnvio = new \DateTime('now', new \DateTimeZone('America/Lima'));
+    $corr   = $this->obtenerSiguienteCorrelativoBaja($companyId, $fechaEnvio->format('Y-m-d'));
+    $nombre = $company->ruc . '-RC-' . $fechaEnvio->format('Ymd') . '-' . $corr;
 
     try {
         $sunat = new SunatService($company);
@@ -2033,7 +2032,7 @@ public function comprobanteCuota($cuotaId)
 
         $summary = (new Summary())
             ->setFecGeneracion(new \DateTime($fecha->format('Y-m-d')))
-            ->setFecResumen(new \DateTime('now', new \DateTimeZone('America/Lima')))
+            ->setFecResumen($fechaEnvio)
             ->setCorrelativo((string)$corr)
             ->setCompany($empresa)
             ->setDetails($details);
@@ -2097,7 +2096,8 @@ public function comprobanteCuota($cuotaId)
                 $cdrZip         = $statusRes->getCdrZip();
                 $cdrCode        = (string)$cdr->getCode();
                 $cdrDescription = (string)$cdr->getDescription();
-                $estadoFinal    = 'ACEPTADO';
+                // El CDR puede traer un rechazo: entonces las boletas siguen pendientes.
+                $estadoFinal    = $cdr->isAccepted() ? 'ACEPTADO' : 'RECHAZADO';
             }
         } catch (\Throwable $ignore) {
             // Si falla la consulta automática el resumen queda ENVIADO
@@ -2143,7 +2143,12 @@ public function comprobanteCuota($cuotaId)
 
             foreach ($boletas as $b) {
                 $b->daily_summary_id = $summaryEntity->id;
-                $b->estado           = $estadoFinal === 'ACEPTADO' ? 'ACEPTADO' : 'EN_RESUMEN';
+                // Rechazado: siguen pendientes para un nuevo resumen.
+                $b->estado = match ($estadoFinal) {
+                    'ACEPTADO' => 'ACEPTADO',
+                    'RECHAZADO' => 'PENDIENTE_RESUMEN',
+                    default => 'EN_RESUMEN',
+                };
 
                 if ($estadoFinal === 'ACEPTADO') {
                     $b->codigo_sunat      = $cdrCode;
@@ -2159,6 +2164,11 @@ public function comprobanteCuota($cuotaId)
 
         if ($estadoFinal === 'ACEPTADO') {
             $this->Flash->success('✅ Resumen aceptado por SUNAT: ' . $cdrDescription);
+        } elseif ($estadoFinal === 'RECHAZADO') {
+            $this->Flash->error(
+                'SUNAT rechazó el resumen: ' . $cdrCode . ' - ' . $cdrDescription .
+                '. Las boletas siguen pendientes para reenviarlas.'
+            );
         } else {
             $this->Flash->warning(
                 '📨 Resumen enviado (Ticket: ' . $ticket . '). ' .
@@ -2305,81 +2315,185 @@ public function comprobanteCuota($cuotaId)
             ->withStringBody($pdfOutput);
     }
 
+    /**
+     * Consulta el ticket de un resumen diario (normal o de anulación) en SUNAT.
+     *
+     * Solo un CDR cambia el estado: aceptado -> ACEPTADO; con rechazo -> RECHAZADO.
+     * "En proceso" (98), un timeout o una falla de conexión NO son rechazo: el
+     * resumen sigue ENVIADO y se puede volver a consultar más tarde.
+     */
     public function consultarResumen($id)
     {
         $this->request->allowMethod(['get', 'post']);
 
         $DailySummaries = $this->fetchTable('DailySummaries');
-        $Companies = $this->fetchTable('Companies');
-
         $summary = $DailySummaries->get($id);
+        $volver = $this->redirect($this->referer(['controller' => 'DailySummaries', 'action' => 'view', $summary->id], true));
 
         if (empty($summary->ticket)) {
             $this->Flash->error('El resumen no tiene ticket.');
-            return $this->redirect($this->referer());
+
+            return $volver;
         }
 
-        $company = $Companies->get((int) $summary->company_id);
+        if ($summary->estado === 'ACEPTADO') {
+            $this->Flash->warning('Este resumen ya fue aceptado por SUNAT.');
+
+            return $volver;
+        }
+
+        $company = $this->fetchTable('Companies')->get((int) $summary->company_id);
+
+        // La consulta se puede repetir sin riesgo: mejor no dejar la pantalla
+        // esperando el minuto completo si SUNAT no responde.
+        set_time_limit(120);
+        ini_set('default_socket_timeout', '25');
 
         try {
-            $sunat = new SunatService($company);
-            $see = $sunat->getSee();
-
-            $res = $see->getStatus($summary->ticket);
-
-            if (!$res->isSuccess()) {
-                $err = $res->getError();
-                $code = (string) $err->getCode();
-                $message = (string) $err->getMessage();
-
-                $summary->estado = 'RECHAZADO';
-                $summary->codigo_sunat = $code;
-                $summary->descripcion_sunat = $message;
-                $DailySummaries->save($summary);
-
-                $this->Flash->error('Error consultando ticket: ' . $code . ' - ' . $message);
-                return $this->redirect(['controller' => 'DailySummaries', 'action' => 'view', $summary->id]);
-            }
-
-            $cdrDir = WWW_ROOT . 'cdr' . DS;
-            if (!is_dir($cdrDir)) {
-                mkdir($cdrDir, 0777, true);
-            }
-
-            $cdrPath = 'cdr/R-' . $summary->nombre . '.zip';
-            file_put_contents(WWW_ROOT . $cdrPath, $res->getCdrZip());
-
-            $cdr = $res->getCdrResponse();
-
-            $summary->estado = 'ACEPTADO';
-            $summary->codigo_sunat = (string) $cdr->getCode();
-            $summary->descripcion_sunat = (string) $cdr->getDescription();
-            $summary->cdr_path = $cdrPath;
-            $DailySummaries->save($summary);
-
-            $boletas = $this->Invoices->find()
-                ->where(['daily_summary_id' => $summary->id])
-                ->all();
-
-            foreach ($boletas as $b) {
-                $b->estado = 'ACEPTADO';
-                $b->codigo_sunat = (string) $cdr->getCode();
-                $b->descripcion_sunat = (string) $cdr->getDescription();
-                $b->cdr_path = $cdrPath;
-                $this->Invoices->save($b);
-            }
-
-            $this->Flash->success('Resumen aceptado: ' . $cdr->getDescription());
-            return $this->redirect(['controller' => 'DailySummaries', 'action' => 'view', $summary->id]);
+            $res = (new SunatService($company))->getSee()->getStatus($summary->ticket);
         } catch (\Throwable $e) {
+            $this->Flash->warning(
+                'No se pudo obtener respuesta de SUNAT (' . $e->getMessage() . '). ' .
+                'El resumen sigue como ENVIADO: vuelva a consultar en unos minutos.'
+            );
+
+            return $volver;
+        }
+
+        if (!$res->isSuccess()) {
+            $err = $res->getError();
+            $code = (string) ($res->getCode() ?: $err?->getCode());
+            if ($code === '98') {
+                $this->Flash->warning('SUNAT aún está procesando el resumen. Vuelva a consultar en unos minutos.');
+            } else {
+                $this->Flash->warning(
+                    'SUNAT no devolvió el resultado (' . $code . ' - ' . $err?->getMessage() . '). ' .
+                    'El resumen sigue como ENVIADO: vuelva a consultar más tarde.'
+                );
+            }
+
+            return $volver;
+        }
+
+        $cdrDir = WWW_ROOT . 'cdr' . DS;
+        if (!is_dir($cdrDir)) {
+            mkdir($cdrDir, 0777, true);
+        }
+        $cdrPath = 'cdr/R-' . $summary->nombre . '.zip';
+        file_put_contents(WWW_ROOT . $cdrPath, (string) $res->getCdrZip());
+
+        $cdr = $res->getCdrResponse();
+        $summary->codigo_sunat = (string) $cdr->getCode();
+        $summary->descripcion_sunat = (string) $cdr->getDescription();
+        $summary->cdr_path = $cdrPath;
+
+        // Un resumen de anulación lleva líneas con estado 3 en su XML.
+        $anuladas = $this->boletasAnuladasEnResumen($summary);
+
+        if (!$cdr->isAccepted()) {
             $summary->estado = 'RECHAZADO';
-            $summary->codigo_sunat = 'EXCEPTION';
-            $summary->descripcion_sunat = $e->getMessage();
             $DailySummaries->save($summary);
 
-            $this->Flash->error('Error consultando resumen: ' . $e->getMessage());
-            return $this->redirect(['controller' => 'DailySummaries', 'action' => 'view', $summary->id]);
+            if (!empty($anuladas)) {
+                // Anulación rechazada: las boletas siguen vigentes.
+                $this->Flash->error('SUNAT rechazó la anulación: ' . $cdr->getCode() . ' - ' . $cdr->getDescription() . '. Las boletas siguen vigentes.');
+
+                return $volver;
+            }
+
+            // Resumen normal rechazado: sus boletas no quedaron informadas,
+            // vuelven a pendientes para incluirlas en un nuevo resumen.
+            $this->Invoices->updateAll(
+                ['estado' => 'PENDIENTE_RESUMEN'],
+                ['daily_summary_id' => $summary->id, 'estado' => 'EN_RESUMEN']
+            );
+            $this->Flash->error(
+                'SUNAT rechazó el resumen: ' . $cdr->getCode() . ' - ' . $cdr->getDescription() .
+                '. Sus boletas volvieron a "pendientes de resumen" para reenviarlas.'
+            );
+
+            return $volver;
         }
+
+        $summary->estado = 'ACEPTADO';
+        $DailySummaries->save($summary);
+
+        if (!empty($anuladas)) {
+            $total = 0;
+            foreach ($anuladas as $b) {
+                if ($b->estado !== 'ACEPTADO') {
+                    continue;
+                }
+                $b->estado = 'ANULADO';
+                $b->codigo_sunat = (string) $cdr->getCode();
+                $b->descripcion_sunat = 'ANULADO: ' . $cdr->getDescription();
+                $this->Invoices->saveOrFail($b);
+                $this->registrarEgresoAnulacion($b, 'REEMBOLSO ANULACIÓN BOLETA');
+                $this->devolverStockAnulacion($b);
+                $total++;
+            }
+            $this->Flash->success('Anulación aceptada por SUNAT: ' . $total . ' boleta(s) anulada(s) y reembolso registrado en caja.');
+
+            return $volver;
+        }
+
+        // Solo las que siguen esperando confirmación (no se tocan las ya anuladas).
+        $boletas = $this->Invoices->find()
+            ->where(['daily_summary_id' => $summary->id, 'estado' => 'EN_RESUMEN'])
+            ->all();
+        foreach ($boletas as $b) {
+            $b->estado = 'ACEPTADO';
+            $b->codigo_sunat = (string) $cdr->getCode();
+            $b->descripcion_sunat = (string) $cdr->getDescription();
+            $b->cdr_path = $cdrPath;
+            $this->Invoices->save($b);
+        }
+
+        $this->Flash->success('Resumen aceptado: ' . $cdr->getDescription());
+
+        return $volver;
+    }
+
+    /**
+     * Boletas que un resumen diario manda anular (líneas con estado 3 en su XML).
+     * Vacío si es un resumen normal o si no se encuentra el XML.
+     *
+     * @return array<\App\Model\Entity\Invoice>
+     */
+    private function boletasAnuladasEnResumen($summary): array
+    {
+        $ruta = WWW_ROOT . ltrim((string) $summary->xml_path, '/\\');
+        if (empty($summary->xml_path) || !is_file($ruta)) {
+            return [];
+        }
+
+        $dom = new \DOMDocument();
+        if (!@$dom->loadXML((string) file_get_contents($ruta))) {
+            return [];
+        }
+        $xpath = new \DOMXPath($dom);
+
+        $boletas = [];
+        foreach ($xpath->query('//*[local-name()="SummaryDocumentsLine"]') as $linea) {
+            $estado = trim((string) $xpath->evaluate('string(.//*[local-name()="Status"]/*[local-name()="ConditionCode"])', $linea));
+            $numero = trim((string) $xpath->evaluate('string(./*[local-name()="ID"])', $linea));
+            if ($estado !== '3' || !preg_match('/^([A-Z0-9]{4})-0*(\d+)$/', $numero, $m)) {
+                continue;
+            }
+            $boleta = $this->Invoices->find()
+                ->where([
+                    'company_id' => (int) $summary->company_id,
+                    'tipo_doc' => '03',
+                    'serie' => $m[1],
+                    'correlativo' => (int) $m[2],
+                ])
+                ->first();
+            if ($boleta) {
+                $boletas[] = $boleta;
+            }
+        }
+
+        return $boletas;
     }
     //pdf rutas y generacion de pdf
     private function generarPdfInvoice(int $id): void
@@ -3052,20 +3166,24 @@ public function comprobanteCuota($cuotaId)
     // =========================================
     // PROCESAR ANULACION DE BOLETAS
     // =========================================
+    // SUNAT permite anular boletas con un Resumen Diario (estado 3) hasta
+    // DIAS_ANULACION_BOLETA días calendario después de su emisión. Un resumen
+    // solo puede llevar boletas de UNA fecha de emisión, así que se envía un
+    // resumen por cada fecha seleccionada.
+
+    $limiteAnulacion = $this->fechaLimiteAnulacionBoletas();
 
     if ($this->request->is('post')) {
 
-        $ids = $this->request->getData('boletas');
+        // Envío + consulta del ticket por cada fecha: puede tardar más de lo normal.
+        set_time_limit(300);
+
+        $ids = array_map('intval', (array) $this->request->getData('boletas'));
 
         if (empty($ids)) {
+            $this->Flash->error('Seleccione al menos una boleta.');
 
-            $this->Flash->error(
-                'Seleccione al menos una boleta.'
-            );
-
-            return $this->redirect([
-                'action' => 'anulaciones'
-            ]);
+            return $this->redirect(['action' => 'anulaciones']);
         }
 
         $boletas = $this->Invoices->find()
@@ -3073,277 +3191,51 @@ public function comprobanteCuota($cuotaId)
             ->where([
                 'Invoices.id IN' => $ids,
                 'Invoices.tipo_doc' => '03',
-                'Invoices.estado' => 'ACEPTADO'
+                'Invoices.estado' => 'ACEPTADO',
+                'Invoices.created >=' => $limiteAnulacion . ' 00:00:00',
             ])
-            ->order(['Invoices.created' => 'ASC'])
+            ->orderBy(['Invoices.created' => 'ASC'])
             ->all();
 
         if ($boletas->isEmpty()) {
-
             $this->Flash->error(
-                'No se encontraron boletas válidas.'
+                'No se encontraron boletas válidas. Solo se pueden anular boletas ACEPTADAS por SUNAT con hasta ' .
+                self::DIAS_ANULACION_BOLETA . ' días de emitidas.'
             );
 
-            return $this->redirect([
-                'action' => 'anulaciones'
-            ]);
-        }
-
-        try {
-
-            $first = $boletas->first();
-
-            $company = $first->company;
-
-            $sunat = new SunatService($company);
-
-            $see = $sunat->getSee();
-
-            // =========================================
-            // EMPRESA
-            // =========================================
-
-            $empresa = (new GreCompany())
-                ->setRuc((string)$company->ruc)
-                ->setRazonSocial((string)$company->razon_social)
-                ->setNombreComercial(
-                    (string)($company->nombre_comercial ?: $company->razon_social)
-                )
-                ->setAddress(
-                    (new Address())
-                        ->setUbigueo((string)$company->ubigeo)
-                        ->setDepartamento((string)$company->departamento)
-                        ->setProvincia((string)$company->provincia)
-                        ->setDistrito((string)$company->distrito)
-                        ->setUrbanizacion((string)($company->urbanizacion ?: '-'))
-                        ->setDireccion((string)$company->direccion)
-                        ->setCodLocal((string)($company->cod_local ?: '0000'))
-                );
-
-            // =========================================
-            // DETALLES
-            // =========================================
-
-            $details = [];
-
-            foreach ($boletas as $i => $b) {
-
-                $detail = (new SummaryDetail())
-
-                ->setTipoDoc('03')
-
-                ->setSerieNro(
-                    $b->serie . '-' .
-                    str_pad(
-                        (string)$b->correlativo,
-                        8,
-                        '0',
-                        STR_PAD_LEFT
-                    )
-                )
-
-                ->setEstado('3')
-
-                ->setClienteTipo(
-                    (string)$b->cliente_tipo_doc
-                )
-
-                ->setClienteNro(
-                    (string)$b->cliente_numero
-                )
-
-                ->setTotal((float)$b->total)
-
-                ->setMtoOperGravadas(
-                    (float)$b->subtotal
-                )
-
-                ->setMtoIGV(
-                    (float)$b->igv
-                )
-
-                ->setPorcentajeIgv(18);
-
-                $details[] = $detail;
-            }
-
-            // =========================================
-            // RESUMEN
-            // =========================================
-
-            $summary = (new Summary())
-
-                ->setFecGeneracion(
-                    new \DateTime(
-                        $first->created->format('Y-m-d')
-                    )
-                )
-
-                ->setFecResumen(
-                    new \DateTime(
-                        'now',
-                        new \DateTimeZone('America/Lima')
-                    )
-                )
-
-                ->setCorrelativo((string) $this->obtenerSiguienteCorrelativoBaja(
-                    (int) $first->company_id,
-                    (new \DateTime('now', new \DateTimeZone('America/Lima')))->format('Y-m-d')
-                ))
-
-                ->setCompany($empresa)
-
-                ->setDetails($details);
-
-            // =========================================
-            // ENVIAR SUNAT
-            // =========================================
-
-            $res = $see->send($summary);
-
-            // =========================================
-            // GUARDAR XML
-            // =========================================
-
-            $xmlDir = WWW_ROOT . 'xml' . DS;
-
-            if (!is_dir($xmlDir)) {
-                if (!mkdir($xmlDir, 0777, true)) {
-                    \Cake\Log\Log::error('No se pudo crear carpeta XML: ' . $xmlDir);
-                }
-            }
-
-            $relativeXmlPath = 'xml/' . $summary->getName() . '.xml';
-            $xmlPath = $xmlDir . $summary->getName() . '.xml';
-            $xmlContent = $see->getFactory()->getLastXml();
-            
-            if (!$xmlContent) {
-                \Cake\Log\Log::error('XML vacío para summary: ' . $summary->getName());
-            } else {
-                $written = file_put_contents($xmlPath, $xmlContent);
-                if ($written === false) {
-                    \Cake\Log\Log::error('No se pudo escribir XML en: ' . $xmlPath);
-                } else {
-                    \Cake\Log\Log::info('XML guardado: ' . $xmlPath . ' (' . $written . ' bytes)');
-                }
-            }
-
-            // =========================================
-            // ERROR SUNAT
-            // =========================================
-
-        //    if (!$res->isSuccess()) {
-
-        //         $err = $res->getError();
-
-        //         dd([
-        //             'codigo' => $err->getCode(),
-        //             'mensaje' => $err->getMessage()
-        //         ]);
-        //     }
-        // Bloque 1 - error SUNAT
-            if (!$res->isSuccess()) {
-                $err = $res->getError();
-                $this->Flash->error(
-                    'SUNAT rechazó anulación: ' . $err->getCode() . ' - ' . $err->getMessage()
-                );
-                return $this->redirect(['action' => 'anulaciones']);
-            }
-
-            // =========================================
-            // TICKET
-            // =========================================
-
-            $ticket = $res->getTicket();
-
-            sleep(3);
-
-            $status = $see->getStatus($ticket);
-
-            // if (!$status->isSuccess()) {
-
-            //     $err = $status->getError();
-
-            //     dd([
-            //         'ticket_error' => $err->getMessage()
-            //     ]);
-            // }
-            // Bloque 2 - error ticket
-            if (!$status->isSuccess()) {
-                $err = $status->getError();
-                $this->Flash->warning(
-                    'Anulación enviada pero ticket pendiente: ' . $err->getMessage()
-                );
-                return $this->redirect(['action' => 'anulaciones']);
-            }
-
-            // =========================================
-            // GUARDAR CDR
-            // =========================================
-
-            $cdrDir = WWW_ROOT . 'cdr' . DS;
-
-            if (!is_dir($cdrDir)) {
-                if (!mkdir($cdrDir, 0777, true)) {
-                    \Cake\Log\Log::error('No se pudo crear carpeta CDR: ' . $cdrDir);
-                }
-            }
-
-            $relativeCdrPath = 'cdr/R-' . $summary->getName() . '.zip';
-            $cdrPath = $cdrDir . 'R-' . $summary->getName() . '.zip';
-            $cdrContent = $status->getCdrZip();
-            
-            if (!$cdrContent) {
-                \Cake\Log\Log::error('CDR vacío para summary: ' . $summary->getName());
-            } else {
-                $written = file_put_contents($cdrPath, $cdrContent);
-                if ($written === false) {
-                    \Cake\Log\Log::error('No se pudo escribir CDR en: ' . $cdrPath);
-                } else {
-                    \Cake\Log\Log::info('CDR guardado: ' . $cdrPath . ' (' . $written . ' bytes)');
-                }
-            }
-
-            $cdr = $status->getCdrResponse();
-
-            // =========================================
-            // ACTUALIZAR BOLETAS
-            // =========================================
-
-            foreach ($boletas as $b) {
-
-                $b->estado = 'ANULADO';
-
-                $b->codigo_sunat =
-                    (string)$cdr->getCode();
-
-                $b->descripcion_sunat =
-                    'ANULADO: ' .
-                    $cdr->getDescription();
-
-                $this->Invoices->save($b);
-
-                $this->registrarEgresoAnulacion($b, 'REEMBOLSO ANULACIÓN BOLETA');
-                $this->devolverStockAnulacion($b);
-            }
-
-            $this->Flash->success(
-                'Boletas anuladas y reembolsos registrados en caja.'
-            );
-
-            return $this->redirect([
-                'action' => 'anulaciones'
-            ]);
-
-        // } catch (\Throwable $e) {
-
-        //     dd($e->getMessage());
-        // }
-        // Bloque 3 - catch
-        } catch (\Throwable $e) {
-            $this->Flash->error('Error anulando boletas: ' . $e->getMessage());
             return $this->redirect(['action' => 'anulaciones']);
         }
+
+        // Agrupar por empresa y fecha de emisión: un resumen por grupo.
+        $grupos = [];
+        foreach ($boletas as $b) {
+            $grupos[$b->company_id . '|' . $b->created->format('Y-m-d')][] = $b;
+        }
+
+        $anuladas = 0;
+        $errores = [];
+
+        foreach ($grupos as $grupo) {
+            try {
+                $resultado = $this->enviarResumenAnulacionBoletas($grupo);
+                if ($resultado === true) {
+                    $anuladas += count($grupo);
+                } else {
+                    $errores[] = $resultado;
+                }
+            } catch (\Throwable $e) {
+                $errores[] = 'Boletas del ' . $grupo[0]->created->format('d/m/Y') . ': ' . $e->getMessage();
+            }
+        }
+
+        if ($anuladas > 0) {
+            $this->Flash->success($anuladas . ' boleta(s) anulada(s) en SUNAT y reembolso registrado en caja.');
+        }
+        foreach ($errores as $error) {
+            $this->Flash->error($error);
+        }
+
+        return $this->redirect(['action' => 'anulaciones']);
     }
 
     // =========================================
@@ -3361,14 +3253,18 @@ public function comprobanteCuota($cuotaId)
         ->order(['created' => 'DESC'])
         ->all();
 
+    // Boletas dentro del plazo de anulación. Las EN_RESUMEN aún no tienen
+    // confirmación de SUNAT: se muestran para que se consulte su resumen antes.
     $boletas = $this->Invoices->find()
+        ->contain(['DailySummaries'])
         ->where([
-            'tipo_doc' => '03',
-            'estado' => 'ACEPTADO',
-            'created >=' => $desde
+            'Invoices.tipo_doc' => '03',
+            'Invoices.estado IN' => ['ACEPTADO', 'EN_RESUMEN'],
+            'Invoices.created >=' => $limiteAnulacion . ' 00:00:00',
         ])
-        ->order(['created' => 'DESC'])
+        ->orderBy(['Invoices.created' => 'DESC'])
         ->all();
+    $diasAnulacion = self::DIAS_ANULACION_BOLETA;
 
         // Cámbialo por:
     $recibos = $this->Invoices->find()
@@ -3395,22 +3291,201 @@ public function comprobanteCuota($cuotaId)
         'facturas',
         'boletas',
         'recibos',
-        'boletasPendientes'
+        'boletasPendientes',
+        'diasAnulacion'
     ));
 }
-private function obtenerSiguienteCorrelativoBaja(int $companyId, string $fecha): int
+/**
+ * Primer día de emisión que todavía se puede anular por Resumen Diario
+ * (estado 3): hoy menos DIAS_ANULACION_BOLETA días calendario.
+ */
+private function fechaLimiteAnulacionBoletas(): string
 {
-    // Busca en daily_summaries los resúmenes de ANULACIÓN del mismo día
-    // para no chocar con los resúmenes normales de boletas
+    return (new \DateTime('now', new \DateTimeZone('America/Lima')))
+        ->modify('-' . self::DIAS_ANULACION_BOLETA . ' days')
+        ->format('Y-m-d');
+}
+
+/**
+ * Envía a SUNAT un Resumen Diario de anulación (estado 3) para boletas de una
+ * misma empresa y fecha de emisión. Solo si SUNAT acepta el CDR se marcan como
+ * ANULADO, se registra el reembolso en caja y se devuelve el stock.
+ *
+ * @param array<\App\Model\Entity\Invoice> $boletas
+ * @return true|string true si se anularon; si no, el mensaje de error.
+ */
+private function enviarResumenAnulacionBoletas(array $boletas)
+{
+    $first = $boletas[0];
+    $company = $first->company;
+    $fechaEmision = $first->created->format('Y-m-d');
+    $fechaEnvio = new \DateTime('now', new \DateTimeZone('America/Lima'));
+    $etiqueta = 'Boletas del ' . $first->created->format('d/m/Y');
+
+    $empresa = (new GreCompany())
+        ->setRuc((string)$company->ruc)
+        ->setRazonSocial((string)$company->razon_social)
+        ->setNombreComercial((string)($company->nombre_comercial ?: $company->razon_social))
+        ->setAddress(
+            (new Address())
+                ->setUbigueo((string)$company->ubigeo)
+                ->setDepartamento((string)$company->departamento)
+                ->setProvincia((string)$company->provincia)
+                ->setDistrito((string)$company->distrito)
+                ->setUrbanizacion((string)($company->urbanizacion ?: '-'))
+                ->setDireccion((string)$company->direccion)
+                ->setCodLocal((string)($company->cod_local ?: '0000'))
+        );
+
+    // Los importes deben ser los mismos que se declararon al informar la boleta
+    // (mismo desglose gravado/exonerado que el resumen diario normal).
+    $InvoiceItems = $this->fetchTable('InvoiceItems');
+    $details = [];
+    foreach ($boletas as $b) {
+        $montoGravado = 0.0;
+        $montoExonerado = 0.0;
+        $igvBoleta = 0.0;
+        foreach ($InvoiceItems->find()->where(['invoice_id' => $b->id])->all() as $item) {
+            $base = round((float) $item->base_igv, 2);
+            if ((string) ($item->tip_afe_igv ?? '10') === '20') {
+                $montoExonerado += $base;
+            } else {
+                $montoGravado += $base;
+            }
+            $igvBoleta += round((float) $item->igv, 2);
+        }
+
+        $details[] = (new SummaryDetail())
+            ->setTipoDoc('03')
+            ->setSerieNro($b->serie . '-' . str_pad((string) $b->correlativo, 8, '0', STR_PAD_LEFT))
+            ->setEstado('3') // 3 = ANULACIÓN
+            ->setClienteTipo((string) ($b->cliente_tipo_doc !== null && $b->cliente_tipo_doc !== '' ? $b->cliente_tipo_doc : '1'))
+            ->setClienteNro((string) ($b->cliente_numero ?: '00000000'))
+            ->setTotal((float) $b->total)
+            ->setMtoOperGravadas(round($montoGravado, 2))
+            ->setMtoOperExoneradas(round($montoExonerado, 2))
+            ->setMtoIGV(round($igvBoleta, 2))
+            ->setPorcentajeIgv(18.00);
+    }
+
+    $corr = $this->obtenerSiguienteCorrelativoBaja((int) $first->company_id, $fechaEnvio->format('Y-m-d'));
+
+    $summary = (new Summary())
+        ->setFecGeneracion(new \DateTime($fechaEmision))
+        ->setFecResumen($fechaEnvio)
+        ->setCorrelativo((string) $corr)
+        ->setCompany($empresa)
+        ->setDetails($details);
+
+    $see = (new SunatService($company))->getSee();
+    $res = $see->send($summary);
+
+    $xmlDir = WWW_ROOT . 'xml' . DS;
+    if (!is_dir($xmlDir)) {
+        mkdir($xmlDir, 0777, true);
+    }
+    $xmlPath = 'xml/' . $summary->getName() . '.xml';
+    file_put_contents(WWW_ROOT . $xmlPath, (string) $see->getFactory()->getLastXml());
+
+    $DailySummaries = $this->fetchTable('DailySummaries');
+    $registro = $DailySummaries->newEntity([
+        'company_id' => (int) $first->company_id,
+        'fecha' => $fechaEnvio->format('Y-m-d'),
+        'correlativo' => $corr,
+        'nombre' => $summary->getName(),
+        'estado' => 'RECHAZADO',
+        'xml_path' => $xmlPath,
+    ]);
+
+    if (!$res->isSuccess()) {
+        $err = $res->getError();
+        $registro->codigo_sunat = (string) $err->getCode();
+        $registro->descripcion_sunat = 'ANULACIÓN: ' . $err->getMessage();
+        $DailySummaries->save($registro);
+
+        return $etiqueta . ': SUNAT rechazó la anulación (' . $err->getCode() . ' - ' . $err->getMessage() . ').';
+    }
+
+    // SUNAT ya recibió la anulación: el ticket se guarda de inmediato, para no
+    // perderlo si la consulta siguiente se demora o la petición se corta.
+    $ticket = $res->getTicket();
+    $registro->ticket = $ticket;
+    $registro->estado = 'ENVIADO';
+    $registro->descripcion_sunat = 'ANULACIÓN pendiente: sin respuesta de SUNAT';
+    $DailySummaries->saveOrFail($registro);
+
+    sleep(3);
+    try {
+        $status = $see->getStatus($ticket);
+    } catch (\Throwable $e) {
+        $status = null;
+    }
+
+    if (!$status || !$status->isSuccess()) {
+        // Sin respuesta todavía (98, timeout...): NO es rechazo. Las boletas
+        // siguen vigentes hasta consultar el resumen.
+        $registro->descripcion_sunat = 'ANULACIÓN pendiente: ' . ($status?->getError()?->getMessage() ?? 'sin respuesta de SUNAT');
+        $DailySummaries->save($registro);
+
+        return $etiqueta . ': anulación enviada (ticket ' . $ticket . ') pero SUNAT aún no responde. ' .
+            'Las boletas siguen vigentes; consulte el resumen ' . $summary->getName() . ' más tarde.';
+    }
+
+    $cdr = $status->getCdrResponse();
+    $cdrDir = WWW_ROOT . 'cdr' . DS;
+    if (!is_dir($cdrDir)) {
+        mkdir($cdrDir, 0777, true);
+    }
+    $cdrPath = 'cdr/R-' . $summary->getName() . '.zip';
+    file_put_contents(WWW_ROOT . $cdrPath, (string) $status->getCdrZip());
+
+    $registro->cdr_path = $cdrPath;
+    $registro->codigo_sunat = (string) $cdr->getCode();
+    $registro->descripcion_sunat = 'ANULACIÓN: ' . $cdr->getDescription();
+
+    if (!$cdr->isAccepted()) {
+        $DailySummaries->save($registro);
+
+        return $etiqueta . ': SUNAT no aceptó la anulación (' . $cdr->getCode() . ' - ' . $cdr->getDescription() . ').';
+    }
+
+    $registro->estado = 'ACEPTADO';
+    $this->Invoices->getConnection()->transactional(function () use ($DailySummaries, $registro, $boletas, $cdr) {
+        $DailySummaries->saveOrFail($registro);
+        foreach ($boletas as $b) {
+            $b->estado = 'ANULADO';
+            $b->codigo_sunat = (string) $cdr->getCode();
+            $b->descripcion_sunat = 'ANULADO: ' . $cdr->getDescription();
+            $this->Invoices->saveOrFail($b);
+        }
+    });
+
+    foreach ($boletas as $b) {
+        $this->registrarEgresoAnulacion($b, 'REEMBOLSO ANULACIÓN BOLETA');
+        $this->devolverStockAnulacion($b);
+    }
+
+    return true;
+}
+
+/**
+ * Siguiente correlativo para un resumen (normal o de anulación) que se ENVÍA
+ * en $fechaEnvio. SUNAT nombra el archivo con la fecha de envío
+ * (RUC-RC-YYYYMMDD-N), así que el número no puede repetirse entre todos los
+ * resúmenes enviados ese día, sean de la fecha de emisión que sean.
+ */
+private function obtenerSiguienteCorrelativoBaja(int $companyId, string $fechaEnvio): int
+{
     $DailySummaries = $this->fetchTable('DailySummaries');
 
     $last = $DailySummaries->find()
         ->select(['correlativo'])
         ->where([
             'company_id' => $companyId,
-            'fecha' => $fecha,
+            'created >=' => $fechaEnvio . ' 00:00:00',
+            'created <=' => $fechaEnvio . ' 23:59:59',
         ])
-        ->order(['correlativo' => 'DESC'])
+        ->orderBy(['correlativo' => 'DESC'])
         ->first();
 
     return $last ? ((int) $last->correlativo + 1) : 1;
