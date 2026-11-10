@@ -1,4 +1,5 @@
 <div class="container py-4">
+    <?= $this->Flash->render() ?>
 
     <div class="mb-4">
         <h2 class="fw-bold text-danger">
