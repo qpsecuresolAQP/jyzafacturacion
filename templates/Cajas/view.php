@@ -120,170 +120,162 @@ $puedeEditarExternos = in_array($caja->estado, ['ABIERTA', 'PAUSADA'], true) || 
 
     </div>
 
-    <!-- RESUMEN -->
+    <!-- RESUMEN POR MÉTODO DE PAGO -->
+    <?php
+    $estiloMetodo = [
+        'EFECTIVO' => ['fa-money-bill-wave', '#28a745'],
+        'YAPE' => ['fa-mobile-alt', '#6f42c1'],
+        'TARJETA' => ['fa-credit-card', '#17a2b8'],
+        'TRANSFERENCIA' => ['fa-university', '#007bff'],
+        'PLIN' => ['fa-comment-dollar', '#e83e8c'],
+        'OTROS' => ['fa-wallet', '#6c757d'],
+    ];
+    $totIngresos = array_sum(array_column($resumenMetodos, 'ingresos'));
+    $totEgresos = array_sum(array_column($resumenMetodos, 'egresos'));
+    $totSaldo = array_sum(array_column($resumenMetodos, 'saldo'));
+    ?>
+
+    <!-- SALDO POR MÉTODO (tarjetas superiores) -->
     <div class="row mb-4">
-
-        <div class="col-md-3">
-
-            <div class="card text-center shadow-sm">
-
-                <div class="card-body">
-
-                    <div class="text-muted">
-                        <i class="fas fa-money-bill-wave me-1"></i>
-                        Efectivo
+        <?php foreach ($resumenMetodos as $clave => $m): ?>
+            <?php [$icono, $color] = $estiloMetodo[$clave]; ?>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="text-muted">
+                            <i class="fas <?= $icono ?> me-1"></i>
+                            <?= h($m['nombre']) ?>
+                        </div>
+                        <h5 class="fw-bold mb-0" style="color: <?= $m['saldo'] < 0 ? '#dc3545' : $color ?>;">
+                            S/ <?= number_format($m['saldo'], 2) ?>
+                        </h5>
+                        <?php if ($m['egresos'] > 0): ?>
+                            <small class="text-muted">
+                                Ingresó S/ <?= number_format($m['ingresos'], 2) ?> · Salió S/ <?= number_format($m['egresos'], 2) ?>
+                            </small>
+                        <?php endif; ?>
                     </div>
-
-                    <h5 class="text-success fw-bold">
-
-                        S/ <?= number_format($totalEfectivoIngresos, 2) ?>
-
-                    </h5>
-
                 </div>
-
             </div>
+        <?php endforeach; ?>
 
-        </div>
-
-        <div class="col-md-3">
-
-            <div class="card text-center shadow-sm">
-
+        <div class="col-md-3 mb-3">
+            <div class="card text-center shadow-sm border-success h-100">
                 <div class="card-body">
-
-                    <div class="text-muted">
-                        <i class="fas fa-mobile-alt me-1"></i>
-                        Yape
-                    </div>
-
-                    <h5 class="fw-bold" style="color:#6f42c1;">
-
-                        S/ <?= number_format($totalYapeIngresos, 2) ?>
-
-                    </h5>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <div class="col-md-3">
-
-            <div class="card text-center shadow-sm">
-
-                <div class="card-body">
-
-                    <div class="text-muted">
-                        <i class="fas fa-credit-card me-1"></i>
-                        Tarjeta
-                    </div>
-
-                    <h5 class="text-info fw-bold">
-
-                        S/ <?= number_format($totalTarjetaIngresos, 2) ?>
-
-                    </h5>
-
-                </div>
-
-            </div>
-
-        </div>
-        <div class="col-md-3">
-
-    <div class="card text-center shadow-sm">
-
-        <div class="card-body">
-
-            <div class="text-muted">
-                <i class="fas fa-comment-dollar me-1"></i>
-                Plin
-            </div>
-
-            <h5 class="fw-bold" style="color:#e83e8c;">
-
-                S/ <?= number_format($totalPlinIngresos, 2) ?>
-
-            </h5>
-
-        </div>
-
-    </div>
-
-</div>
-
-<div class="col-md-3">
-
-    <div class="card text-center shadow-sm">
-
-        <div class="card-body">
-
-            <div class="text-muted">
-                <i class="fas fa-university me-1"></i>
-                Transferencia
-            </div>
-
-            <h5 class="fw-bold text-primary">
-
-                S/ <?= number_format($totalTransferenciaIngresos, 2) ?>
-
-            </h5>
-
-        </div>
-
-    </div>
-
-</div>
-
-<div class="col-md-3">
-
-    <div class="card text-center shadow-sm">
-
-        <div class="card-body">
-
-            <div class="text-muted">
-                <i class="fas fa-wallet me-1"></i>
-                Otros
-            </div>
-
-            <h5 class="fw-bold text-secondary">
-
-                S/ <?= number_format($totalOtrosIngresos, 2) ?>
-
-            </h5>
-
-        </div>
-
-    </div>
-
-</div>
-
-        <div class="col-md-3">
-
-            <div class="card text-center shadow-sm border-success">
-
-                <div class="card-body">
-
                     <div class="text-muted">
                         <i class="fas fa-calculator me-1"></i>
-                        Ingresos de hoy
+                        Saldo total
                     </div>
-
-                    <h4 class="text-success fw-bold">
-
-                        S/ <?= number_format($totalGeneralIngresos, 2) ?>
-
+                    <h4 class="text-success fw-bold mb-0">
+                        S/ <?= number_format($totSaldo, 2) ?>
                     </h4>
-
                 </div>
-
             </div>
+        </div>
+    </div>
 
+    <style>
+        .resumen-caja .kpi-caja { border-radius: .5rem; padding: .9rem 1rem; height: 100%; border: 1px solid #e9ecef; background: #fff; }
+        .resumen-caja .kpi-caja .kpi-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; color: #6c757d; }
+        .resumen-caja .kpi-caja .kpi-valor { font-size: 1.45rem; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+        .resumen-caja .kpi-ingresos { border-left: 4px solid #28a745; }
+        .resumen-caja .kpi-egresos { border-left: 4px solid #dc3545; }
+        .resumen-caja .kpi-saldo { border-left: 4px solid #007bff; background: #f4f9ff; }
+        .resumen-caja .metodo-icono { width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+        .resumen-caja .tabla-metodos td, .resumen-caja .tabla-metodos th { vertical-align: middle; }
+        .resumen-caja .tabla-metodos th { font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; color: #6c757d; border-top: 0; }
+        .resumen-caja .barra-uso { height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden; margin-top: 4px; max-width: 160px; }
+        .resumen-caja .barra-uso > div { height: 100%; background: #dc3545; }
+        .resumen-caja .saldo-metodo { font-size: 1.05rem; }
+        .resumen-caja details summary { cursor: pointer; }
+    </style>
+
+    <div class="card shadow-sm mb-4 resumen-caja">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <span class="font-weight-bold"><i class="fas fa-calculator mr-1 text-primary"></i> Resumen por método de pago</span>
+            <small class="text-muted">Ingresos − Egresos = Saldo</small>
         </div>
 
+        <div class="card-body">
+            <!-- Totales -->
+            <div class="row mb-3">
+                <div class="col-md-4 mb-2 mb-md-0">
+                    <div class="kpi-caja kpi-ingresos">
+                        <div class="kpi-label"><i class="fas fa-arrow-down text-success mr-1"></i> Ingresos</div>
+                        <div class="kpi-valor text-success">S/ <?= number_format($totIngresos, 2) ?></div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-2 mb-md-0">
+                    <div class="kpi-caja kpi-egresos">
+                        <div class="kpi-label"><i class="fas fa-arrow-up text-danger mr-1"></i> Egresos</div>
+                        <div class="kpi-valor text-danger">S/ <?= number_format($totEgresos, 2) ?></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="kpi-caja kpi-saldo">
+                        <div class="kpi-label"><i class="fas fa-wallet text-primary mr-1"></i> Saldo</div>
+                        <div class="kpi-valor text-primary">S/ <?= number_format($totSaldo, 2) ?></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalle por método -->
+            <div class="table-responsive">
+                <table class="table tabla-metodos mb-0">
+                    <thead>
+                        <tr>
+                            <th>Método</th>
+                            <th class="text-right">Ingresos</th>
+                            <th class="text-right">Egresos</th>
+                            <th class="text-right">Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($resumenMetodos as $clave => $m): ?>
+                            <?php if ($clave !== 'EFECTIVO' && $m['ingresos'] == 0 && $m['egresos'] == 0) continue; ?>
+                            <?php
+                            [$icono, $color] = $estiloMetodo[$clave];
+                            // Hacia abajo: 99.8% no debe mostrarse como 100% si aún queda saldo.
+                            $porcUso = $m['ingresos'] > 0 ? (int) min(100, floor($m['egresos'] / $m['ingresos'] * 100)) : ($m['egresos'] > 0 ? 100 : 0);
+                            ?>
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="metodo-icono mr-2" style="background: <?= $color ?>;"><i class="fas <?= $icono ?>"></i></span>
+                                        <div>
+                                            <div class="font-weight-bold"><?= h($m['nombre']) ?></div>
+                                            <?php if ($m['egresos'] > 0): ?>
+                                                <div class="barra-uso" title="<?= $porcUso ?>% de lo ingresado salió como egreso"><div style="width: <?= $porcUso ?>%;"></div></div>
+                                                <small class="text-muted"><?= $porcUso ?>% usado en egresos</small>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-right">S/ <?= number_format($m['ingresos'], 2) ?></td>
+                                <td class="text-right <?= $m['egresos'] > 0 ? 'text-danger' : 'text-muted' ?>">
+                                    <?= $m['egresos'] > 0 ? '− S/ ' . number_format($m['egresos'], 2) : '—' ?>
+                                </td>
+                                <td class="text-right font-weight-bold saldo-metodo <?= $m['saldo'] < 0 ? 'text-danger' : '' ?>">
+                                    S/ <?= number_format($m['saldo'], 2) ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <details class="mt-3 small text-muted">
+                <summary><i class="fas fa-info-circle mr-1"></i>¿Qué incluye cada columna?</summary>
+                <div class="mt-2 pl-3">
+                    <div><strong>Ingresos:</strong> cobros de comprobantes (sin anulados) + ingresos externos.</div>
+                    <div><strong>Egresos:</strong> gastos registrados en caja.</div>
+                    <div><strong>Saldo:</strong> lo que queda en cada método (en efectivo, sin contar el monto de apertura).</div>
+                    <div>Los reembolsos por anulación no se restan: la venta anulada ya no se cuenta en ingresos.</div>
+                </div>
+            </details>
+        </div>
     </div>
+
     <div class="card shadow-sm mb-4">
 
         <div class="card-header fw-bold bg-light">
@@ -905,6 +897,21 @@ $puedeEditarExternos = in_array($caja->estado, ['ABIERTA', 'PAUSADA'], true) || 
             </button>
 
             <?= $this->Form->end() ?>
+
+        <?php endif; ?>
+
+        <?php if (!empty($puedeReabrir)): ?>
+
+            <?= $this->Form->postLink(
+                '<i class="fas fa-lock-open me-1"></i> Reabrir Caja',
+                ['action' => 'reabrir', $caja->id],
+                [
+                    'escape' => false,
+                    'class' => 'btn btn-warning',
+                    'title' => 'Para registrar una venta más hoy. Se borrará el conteo de cierre y habrá que cerrarla de nuevo.',
+                    'confirm' => '¿Reabrir esta caja?' . "\n\n" . 'Se borrará el conteo del cierre (monto y billetes). Al terminar deberá cerrarla de nuevo.',
+                ]
+            ) ?>
 
         <?php endif; ?>
 

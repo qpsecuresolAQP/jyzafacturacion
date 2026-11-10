@@ -278,42 +278,41 @@ $numeroDocumento = 'CAJA-' . $caja->codigo . '-' . ($caja->fecha?->format('Ymd')
     <!-- MOVIMIENTOS POR MÉTODO DE PAGO -->
     <!-- ═════════════════════════════════════════════════════════════════ -->
     <div class="section">
-        <div class="section-title"> MOVIMIENTOS POR MÉTODO DE PAGO</div>
-        <div class="money-grid">
-            <div class="money-box">
-                <div class="money-box-title">Efectivo</div>
-                <div class="money-box-amount">S/ <?= number_format($totalEfectivo, 2) ?></div>
-            </div>
-            <div class="money-box">
-                <div class="money-box-title">Yape</div>
-                <div class="money-box-amount">S/ <?= number_format($totalYape, 2) ?></div>
-            </div>
-            <div class="money-box">
-                <div class="money-box-title">Tarjeta</div>
-                <div class="money-box-amount">S/ <?= number_format($totalTarjeta, 2) ?></div>
-            </div>
-            <div class="money-box">
-                <div class="money-box-title">Transferencia</div>
-                <div class="money-box-amount">S/ <?= number_format($totalTransferencia, 2) ?></div>
-            </div>
-            <div class="money-box">
-                <div class="money-box-title">Plin</div>
-                <div class="money-box-amount">S/ <?= number_format($totalPlin, 2) ?></div>
-            </div>
-            <div class="money-box">
-                <div class="money-box-title">Otros</div>
-                <div class="money-box-amount">S/ <?= number_format($totalOtros, 2) ?></div>
-            </div>
-        </div>
-
+        <div class="section-title"> RESUMEN POR MÉTODO DE PAGO</div>
         <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>Método</th>
+                    <th class="text-right">Ingresos</th>
+                    <th class="text-right">Egresos</th>
+                    <th class="text-right">Saldo</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($resumenMetodos as $clave => $m): ?>
+                    <?php if ($clave !== 'EFECTIVO' && $m['ingresos'] == 0 && $m['egresos'] == 0) continue; ?>
+                    <tr>
+                        <td><?= h($m['nombre']) ?></td>
+                        <td class="text-right">S/ <?= number_format($m['ingresos'], 2) ?></td>
+                        <td class="text-right"><?= $m['egresos'] > 0 ? '- S/ ' . number_format($m['egresos'], 2) : 'S/ 0.00' ?></td>
+                        <td class="text-right fw-bold">S/ <?= number_format($m['saldo'], 2) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
             <tfoot>
                 <tr>
-                    <td style="width: 70%;">TOTAL DE INGRESOS POR MOVIMIENTOS</td>
-                    <td>S/ <?= number_format($totalGeneral, 2) ?></td>
+                    <td>TOTAL</td>
+                    <td class="text-right">S/ <?= number_format($totalGeneralIngresos, 2) ?></td>
+                    <td class="text-right">- S/ <?= number_format($totalGeneralIngresos - $totalGeneral, 2) ?></td>
+                    <td class="text-right">S/ <?= number_format($totalGeneral, 2) ?></td>
                 </tr>
             </tfoot>
         </table>
+        <p style="font-size: 9px; color: #666; margin-top: 4px;">
+            Ingresos: cobros (sin anulados) + ingresos externos. Egresos: gastos de caja.
+            Saldo: lo que queda en cada método (efectivo sin el monto de apertura).
+            Los reembolsos por anulación no se restan porque la venta anulada ya no suma.
+        </p>
     </div>
 
     <!-- ═════════════════════════════════════════════════════════════════ -->

@@ -231,7 +231,20 @@ $this->set(compact(
         $totalGeneralIngresos = array_sum($ingresos);
         $totalGeneral = array_sum($neto);
 
+        // Desglose por método para la vista y el PDF: lo que entró, lo que salió
+        // (gastos; los reembolsos no, porque la venta anulada ya no suma) y el saldo.
+        $resumenMetodos = [];
+        foreach ($metodos as $clave => $nombre) {
+            $resumenMetodos[$clave] = [
+                'nombre' => $nombre,
+                'ingresos' => $ingresos[$clave],
+                'egresos' => round($ingresos[$clave] - $neto[$clave], 2),
+                'saldo' => $neto[$clave],
+            ];
+        }
+
         return [
+            'resumenMetodos' => $resumenMetodos,
             'totalEfectivo' => $neto['EFECTIVO'],
             'totalYape' => $neto['YAPE'],
             'totalTarjeta' => $neto['TARJETA'],
@@ -327,8 +340,10 @@ $this->set(compact(
         'distribucionesCaja',
         'totalDistribuidoCaja',
         'totalDistribuidoLaboratorio',
-        'totalDistribuidoMateriales'
+        'totalDistribuidoMateriales',
+        'resumenMetodos'
     ));
+    $this->set('puedeReabrir', $this->motivoNoReabrir($caja) === null);
 }
 
     public function pdf($id)
@@ -398,7 +413,8 @@ $this->set(compact(
             'denominacionesApertura',
             'denominacionesCierre',
             'totalApertura',
-            'totalCierre'
+            'totalCierre',
+            'resumenMetodos'
         ));
 
         $html = $this->render('pdf')->getBody();
@@ -491,6 +507,85 @@ $this->set(compact(
         }
 
         return $this->redirect(['action' => 'view', $id]);
+    }
+
+    /**
+     * Reabre una caja cerrada para atender a un cliente más. Solo el mismo día,
+     * para no alterar cierres de días anteriores. El conteo de cierre se borra:
+     * se vuelve a contar al cerrarla de nuevo.
+     */
+    public function reabrir($id)
+    {
+        $this->request->allowMethod(['post']);
+
+        $caja = $this->Cajas->get($id);
+        $motivo = $this->motivoNoReabrir($caja);
+        if ($motivo !== null) {
+            $this->Flash->error($motivo);
+
+            return $this->redirect(['action' => 'view', $id]);
+        }
+
+        $ok = $this->Cajas->getConnection()->transactional(function () use ($caja) {
+            $this->fetchTable('CajaDenominaciones')->deleteAll([
+                'caja_id' => $caja->id,
+                'tipo_movimiento' => 'CIERRE',
+            ]);
+            $caja->estado = 'ABIERTA';
+            $caja->monto_cierre = null;
+
+            return (bool) $this->Cajas->save($caja);
+        });
+
+        if ($ok) {
+            $this->Flash->success('Caja reabierta. Al terminar, vuelva a cerrarla con el nuevo conteo.');
+        } else {
+            $this->Flash->error('No se pudo reabrir la caja.');
+        }
+
+        return $this->redirect(['action' => 'view', $id]);
+    }
+
+    /**
+     * Por qué no se puede reabrir la caja, o null si se puede.
+     */
+    private function motivoNoReabrir($caja): ?string
+    {
+        if ($caja->estado !== 'CERRADA') {
+            return 'Solo se puede reabrir una caja cerrada.';
+        }
+
+        $fechaCaja = $caja->fecha ? $caja->fecha->format('Y-m-d') : $caja->created?->format('Y-m-d');
+        if ($fechaCaja !== date('Y-m-d')) {
+            return 'Solo se puede reabrir una caja del día de hoy.';
+        }
+
+        $identity = $this->request->getAttribute('identity');
+        $userId = $identity ? (int) $identity->getIdentifier() : 0;
+        if ((int) $caja->user_id !== $userId && !$this->esAdministrador()) {
+            return 'Solo el usuario de esta caja o el administrador pueden reabrirla.';
+        }
+
+        // Si después se abrió otra caja, reabrir esta mezclaría los movimientos.
+        $posterior = $this->Cajas->find()
+            ->where(['id >' => $caja->id, 'codigo' => $caja->codigo])
+            ->first();
+        if ($posterior) {
+            return 'No se puede reabrir: después de esta caja ya se abrió otra.';
+        }
+
+        $abierta = $this->Cajas->find()
+            ->where([
+                'id !=' => $caja->id,
+                'estado' => 'ABIERTA',
+                'OR' => ['user_id' => $caja->user_id, 'codigo' => $caja->codigo],
+            ])
+            ->first();
+        if ($abierta) {
+            return 'No se puede reabrir: ya hay otra caja abierta.';
+        }
+
+        return null;
     }
 
    public function cerrar($id)
