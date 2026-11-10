@@ -203,7 +203,9 @@
                 </div>
             <?php else: ?>
                 <div class="d-flex justify-content-between align-items-center flex-wrap">
-                    <span><i class="fas fa-info-circle text-info mr-1"></i> Crédito pendiente muestra <strong>todas las fechas</strong>.</span>
+                    <span><i class="fas fa-info-circle text-info mr-1"></i>
+                        <?= $buscandoCliente ? 'Resultados de la búsqueda en' : 'Crédito pendiente muestra' ?> <strong>todas las fechas</strong>.
+                    </span>
                     <div class="d-flex kpis">
                         <div class="kpi kpi-cantidad">
                             <div class="kpi-label">Comprobantes</div>
@@ -301,8 +303,8 @@
                 </a>
             <?php endif; ?>
         <?= $this->Form->end() ?>
-        <?php if ($filtraPorFecha && ($q('cliente') || $q('documento'))): ?>
-            <small class="text-muted">La búsqueda se aplica solo al día seleccionado. Si no encuentra el comprobante, cambie de fecha o use los reportes.</small>
+        <?php if ($buscandoCliente): ?>
+            <small class="text-muted">Se busca en todas las fechas. Use "Limpiar" para volver a la vista por día.</small>
         <?php endif; ?>
     </div>
 

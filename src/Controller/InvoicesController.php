@@ -95,7 +95,9 @@ $fecha = (string) $this->request->getQuery('fecha', '');
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $fecha > $hoy) {
     $fecha = $hoy;
 }
-$filtraPorFecha = $this->request->getQuery('credito') !== '1';
+// Al buscar por cliente o DNI se busca en todas las fechas: no se sabe en qué día fue la venta.
+$buscandoCliente = $busquedaCliente !== '' || $busquedaDocumento !== '';
+$filtraPorFecha = $this->request->getQuery('credito') !== '1' && !$buscandoCliente;
 if ($filtraPorFecha) {
     $query->where([
         'Invoices.created >=' => $fecha . ' 00:00:00',
@@ -133,7 +135,7 @@ if ($filtraPorFecha) {
             'order' => ['nombre' => 'ASC', 'apellido' => 'ASC'],
         ])->toArray();
 
-        $this->set(compact('invoices', 'cajaAbierta', 'doctores', 'fecha', 'hoy', 'filtraPorFecha', 'resumen', 'resumenAnulados'));
+        $this->set(compact('invoices', 'cajaAbierta', 'doctores', 'fecha', 'hoy', 'filtraPorFecha', 'buscandoCliente', 'resumen', 'resumenAnulados'));
     }
 
     public function asignarDoctor($id = null)
