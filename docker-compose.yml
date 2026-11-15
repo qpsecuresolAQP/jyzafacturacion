@@ -1,6 +1,5 @@
 services:
   app:
-    build: .
     image: jyzafacturacion-app:latest
     container_name: jyzafacturacion_app
     restart: unless-stopped
