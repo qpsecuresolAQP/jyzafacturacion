@@ -309,6 +309,9 @@ $infoAdicional = trim((string) ($invoice->observaciones ?? ''));
         <div>Cliente : <?= h($invoice->cliente_nombre) ?></div>
         <div><?= $etiquetaDoc ?> : <?= h($invoice->cliente_numero) ?></div>
         <div>Fecha : <?= h($invoice->created?->format('d/m/Y H:i')) ?> &nbsp; Moneda : SOLES</div>
+        <?php if (!empty($invoice->user->username)): ?>
+            <div>Atendido por : <?= h($invoice->user->username) ?></div>
+        <?php endif; ?>
     </div>
 
     <!-- ITEMS -->

@@ -1931,6 +1931,7 @@ public function comprobanteCuota($cuotaId)
                 'HistoriasClinicas',
                 'InvoiceItems' => ['Tratamientos'],
                 'CajaMovimientos',
+                'Users',
             ],
         ]);
 
@@ -2191,6 +2192,7 @@ public function comprobanteCuota($cuotaId)
                 'Pacientes',
                 'HistoriasClinicas',
                 'InvoiceItems' => ['Tratamientos'],
+                'Users',
             ],
         ]);
 
